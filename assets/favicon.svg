@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#111" stroke-width="2"/><text x="16" y="23" font-family="Georgia,serif" font-size="20" text-anchor="middle" fill="#111">M</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0.05" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#5b7fa3"/>
+      <stop offset="1" stop-color="#20406a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <path fill="#fff" transform="translate(32 33) scale(0.0715) translate(-703.5 -628)" d="M414 890V370Q414 338 446 338H452Q482 338 500 360L680 565 872 356Q892 338 918 338H962Q993 338 993 372V886Q993 918 960 918H890Q856 918 856 886V592L698 745Q680 762 662 745L515 595V886Q515 918 482 918H448Q414 918 414 890Z"/>
+</svg>

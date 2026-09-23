@@ -119,3 +119,12 @@ Press **P** on an article, use the Print button beside Save, or Ctrl+K → **Pri
 ## Settings
 
 The gear in the top bar (or Ctrl+K → **Settings…**) gathers image hosting (guided ImgBB setup with links to sign up, get a key and open your account), block types, printing and backup. On the home page a reminder appears when pages exist only in this browser and have not been backed up for a week. Backups now include your block types (never your ImgBB key).
+
+## Hosting on Vercel
+
+The site is fully static, so there is nothing to build. In Vercel: **Add New → Project → import the GitHub repo**, leave every setting at its default (`vercel.json` already sets framework "Other", no build command, output folder `.`), and deploy. Every push to `main` redeploys.
+
+- Articles live in `content/` (and the manifest in `assets/js/data.js`). Write them locally with `npm start`, which saves to those files, then commit and push. Edits made on the hosted site are stored only in that visitor's browser (there is no server to write files), so treat the hosted copy as read-mostly and use **Export backup** if you do write there.
+- Icons: `assets/favicon.svg` and `favicon.ico` (browser tab), `assets/icons/` (home-screen, maskable and Apple icons, the vector `logo.svg`, and `og-image.png` for link previews), `site.webmanifest` (installable app).
+- `404.html` is the not-found page; `.vercelignore` keeps tests and tools out of the deployment.
+- Link previews need an absolute image URL. Once you know your domain, add `<meta property="og:image" content="https://YOUR-DOMAIN/assets/icons/og-image.png">` to `index.html`.
