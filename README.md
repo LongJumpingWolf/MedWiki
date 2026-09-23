@@ -133,3 +133,7 @@ The site is fully static, so there is nothing to build. In Vercel: **Add New →
 
 - Every article is **in progress** until you press **Mark as finished** at its end (a seal stamps the page). **Reopen for editing** puts it back. The date is stored as `finished:` in the front matter. Home shows how many are in progress.
 - **Help me choose** (home, or Ctrl+K) picks one of your in-progress articles with a wheel of fortune, a slot machine, a fortune cookie or a bowl of chits. "Surprise me" picks the game too.
+
+## Subjects and chapters
+
+Right-click a subject or chapter in the library tree to add a chapter, rename, or delete it (type `delete` to confirm). Deleting one that holds articles asks whether to move them elsewhere or delete them too. The **+** next to "Library" adds a subject. Once you change the tree it is saved in `content/_structure.js` (or kept in this browser without the server) and replaces the defaults in `assets/js/data.js`.

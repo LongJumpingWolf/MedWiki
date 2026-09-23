@@ -189,8 +189,8 @@ await test("right-click an article in the tree to delete it; you must type delet
   ok(existsSync(file("content/trash-me.js")), "throwaway page file missing");
   await go(BASE + "index.html");
   await ev("document.querySelector('.leaf[href=\"article.html?a=trash-me\"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }))");
-  ok(await ev("!!document.querySelector('.ctx-menu [data-a=delete]')"), "context menu missing");
-  await ev("document.querySelector('.ctx-menu [data-a=delete]').click()");
+  ok(await ev("!!document.querySelector('.ctx-menu .danger')"), "context menu missing");
+  await ev("document.querySelector('.ctx-menu .danger').click()");
   ok(await ev("document.querySelector('.delete-dialog [type=submit]').disabled === true"), "delete must start disabled");
   await ev("(()=>{const i=document.querySelector('.delete-dialog input'); i.value='del'; i.dispatchEvent(new Event('input'))})()");
   ok(await ev("document.querySelector('.delete-dialog [type=submit]').disabled === true"), "partial text must not unlock delete");
@@ -680,6 +680,43 @@ await test("Source tab shows the Markdown and switching back keeps the content",
   ok(await ev("!document.querySelector('.pane-visual').hidden && document.querySelector('.ve-surface').innerText.includes('Visual typing works')"), "visual view missing content");
   await ev("localStorage.setItem('medwiki:editorMode', '\"source\"')");
   await ev("document.querySelector('[data-cancel]').click()");
+});
+
+console.log("\nSubjects and chapters\n");
+
+await test("add, rename and delete subjects and chapters; articles are moved or deleted", async () => {
+  await go(BASE + "index.html");
+  await ev("MedWiki.struct.addSubject('Anatomy')");
+  await sleep(500);
+  ok(read("content/_structure.js").includes('"Anatomy"'), "structure file not written");
+  await go(BASE + "index.html");
+  ok(await ev("!!document.querySelector('.node.subject[data-key=\"anatomy\"]')"), "empty subject should show in the tree");
+  await ev("MedWiki.struct.addChapter('anatomy', 'Head and neck')");
+  await sleep(400);
+  ok(read("content/_structure.js").includes("head-and-neck"), "chapter not saved");
+  await ev("MedWiki.struct.rename('anatomy', 'head-and-neck', 'Head')");
+  await sleep(400);
+  ok(read("content/_structure.js").includes('"Head"'), "rename not saved");
+  await ev("MedWiki.createPage({ title: 'Skull', subject: 'anatomy', chapter: 'head-and-neck' })");
+  await sleep(500);
+  await go(BASE + "index.html");
+  // delete the chapter through the tree menu, moving its article to Pathology > General pathology
+  await ev("document.querySelector('.node[data-key=\"anatomy/head-and-neck\"] .node-row').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 200 }))");
+  ok(await ev("document.querySelectorAll('.ctx-menu button').length === 3"), "chapter menu missing");
+  await ev("document.querySelector('.ctx-menu .danger').click()");
+  ok(await ev("document.querySelector('.delete-dialog .del-hint, .delete-dialog .dialog-hint').textContent.includes('1 article')"), "should mention the article");
+  await ev("(()=>{const s=document.querySelector('.delete-dialog select[name=to]'); s.value='pathology|general'; const i=document.querySelector('.delete-dialog input[name=confirm]'); i.value='delete'; i.dispatchEvent(new Event('input'))})()");
+  await ev("document.querySelector('.delete-dialog [type=submit]').click()");
+  ok(await waitFor("!document.querySelector('.delete-dialog')", 5000), "dialog should close");
+  await sleep(600);
+  ok(await ev("MedWiki.page('skull').subject === 'pathology' && MedWiki.page('skull').chapter === 'general'"), "article should move");
+  ok(read("content/skull.js").includes("subject: pathology"), "moved article should be saved");
+  ok(!read("content/_structure.js").includes("head-and-neck"), "chapter should be removed from the structure");
+  // delete the subject and the article it now no longer holds
+  await ev("MedWiki.struct.remove('anatomy', '', { deletePages: true })");
+  await sleep(500);
+  ok(!read("content/_structure.js").includes('"anatomy"'), "subject should be removed");
+  ok(await ev("!!MedWiki.page('skull')"), "moved article must survive the subject deletion");
 });
 
 console.log("\nBrowser-only mode (no server)\n");

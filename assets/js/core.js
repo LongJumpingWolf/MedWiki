@@ -101,7 +101,18 @@ window.MedWiki = window.MedWiki || {};
     return merged;
   }
 
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+
+  /* Once you add, rename or delete a subject or chapter, the whole tree lives in content/_structure.js
+     (or in this browser until the server writes it) and replaces the defaults in data.js. */
+  MW.structureOverride = function () {
+    var local = MW.store.get("medwiki:structure", null);
+    return Array.isArray(local) ? local : Array.isArray(MW.structure) ? MW.structure : null;
+  };
+
   MW.subjects = function () {
+    var over = MW.structureOverride();
+    if (over) return clone(over);
     var extra = extraChapters();
     return (MW.subjectData || []).map(function (s) {
       return { id: s.id, title: s.title, chapters: s.chapters.concat(extra[s.id] || []) };
@@ -117,12 +128,24 @@ window.MedWiki = window.MedWiki || {};
     return (s && s.chapters.filter(function (c) { return c.id === chapterId; })[0]) || null;
   };
 
+  function uniqueId(taken, title) {
+    var base = MW.slug(title);
+    var id = base;
+    var n = 2;
+    while (taken.indexOf(id) !== -1) id = base + "-" + n++;
+    return id;
+  }
+
   MW.addChapter = function (subjectId, title) {
     var extra = MW.store.get("medwiki:chapters", {});
     var s = MW.subject(subjectId);
-    var id = MW.slug(title);
-    var n = 2;
-    while (s.chapters.some(function (c) { return c.id === id; })) id = MW.slug(title) + "-" + n++;
+    var id = uniqueId(s.chapters.map(function (c) { return c.id; }), title);
+    if (MW.structureOverride()) {
+      var st = MW.subjects();
+      st.filter(function (x) { return x.id === subjectId; })[0].chapters.push({ id: id, title: title });
+      MW.store.set("medwiki:structure", st);
+      return id;
+    }
     (extra[subjectId] = extra[subjectId] || []).push({ id: id, title: title });
     MW.store.set("medwiki:chapters", extra);
     return id;
@@ -356,7 +379,69 @@ window.MedWiki = window.MedWiki || {};
   };
 
   /* Chapters created in the editor live in this browser until the server writes them out. */
+  MW.persistStructure = function () {
+    var st = MW.structureOverride();
+    if (!st || !MW.server.available) return Promise.resolve(false);
+    return MW.api("structure", { structure: st }).then(function () {
+      MW.structure = st;
+      MW.store.remove("medwiki:structure");
+      return true;
+    }, function () { return false; });
+  };
+
+  MW.saveStructure = function (st) {
+    MW.store.set("medwiki:structure", st);
+    return MW.persistStructure().then(function (written) { MW.rebuild(); return written; });
+  };
+
+  /* Add, rename and delete subjects and chapters. Articles in a deleted chapter or subject are moved or deleted. */
+  MW.struct = {
+    pagesIn: function (sid, cid) {
+      return MW.pages.filter(function (p) { return p.subject === sid && (!cid || p.chapter === cid); });
+    },
+    addSubject: function (title) {
+      var st = MW.subjects();
+      var id = uniqueId(st.map(function (s) { return s.id; }), title);
+      st.push({ id: id, title: title, chapters: [] });
+      return MW.saveStructure(st).then(function () { return id; });
+    },
+    addChapter: function (sid, title) {
+      var st = MW.subjects();
+      var s = st.filter(function (x) { return x.id === sid; })[0];
+      var id = uniqueId(s.chapters.map(function (c) { return c.id; }), title);
+      s.chapters.push({ id: id, title: title });
+      return MW.saveStructure(st).then(function () { return id; });
+    },
+    rename: function (sid, cid, title) {
+      var st = MW.subjects();
+      var s = st.filter(function (x) { return x.id === sid; })[0];
+      if (!cid) s.title = title;
+      else s.chapters.filter(function (c) { return c.id === cid; })[0].title = title;
+      return MW.saveStructure(st);
+    },
+    /* opts: { move: {subject, chapter} } moves the articles first; { deletePages: true } deletes them. */
+    remove: function (sid, cid, opts) {
+      var affected = MW.struct.pagesIn(sid, cid);
+      var chain = Promise.resolve();
+      affected.forEach(function (p) {
+        chain = chain.then(function () {
+          if (opts.move) return MW.commit(p.id, { subject: opts.move.subject, chapter: opts.move.chapter }, null, { touch: false });
+          MW.store.remove("medwiki:draft:" + p.id);
+          if (MW.bookmarks.list().indexOf(p.id) !== -1) MW.bookmarks.toggle(p.id);
+          return p.origin === "file" || p.overridden ? MW.deleteFile(p.id) : MW.discardLocal(p.id);
+        });
+      });
+      return chain.then(function () {
+        var st = MW.subjects();
+        if (!cid) st = st.filter(function (s) { return s.id !== sid; });
+        else st.filter(function (s) { return s.id === sid; })[0].chapters = st.filter(function (s) { return s.id === sid; })[0].chapters.filter(function (c) { return c.id !== cid; });
+        return MW.saveStructure(st);
+      });
+    },
+  };
+
   MW.persistChapters = function () {
+    if (MW.structureOverride()) return MW.persistStructure();
     if (!MW.server.available) return Promise.resolve(false);
     return MW.api("chapters", { extra: extraChapters() }).then(function () {
       MW.extraChapters = extraChapters();

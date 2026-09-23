@@ -36,7 +36,7 @@
     var keys = [];
     Object.keys(pages).forEach(function (id) { keys = keys.concat(MW.images.refs(pages[id])); });
     MW.images.dataFor(keys).then(function (images) {
-      var data = { version: 3, exported: new Date().toISOString(), pages: pages, chapters: MW.store.get("medwiki:chapters", {}), blocktypes: MW.store.get("medwiki:blocktypes", null), images: images };
+      var data = { version: 3, exported: new Date().toISOString(), pages: pages, chapters: MW.store.get("medwiki:chapters", {}), blocktypes: MW.store.get("medwiki:blocktypes", null), structure: MW.store.get("medwiki:structure", null), images: images };
       MW.download("medwiki-backup-" + MW.today() + ".json", JSON.stringify(data), "application/json");
       MW.store.set("medwiki:lastBackup", Date.now());
       MW.toast("Backup downloaded (" + Object.keys(pages).length + " pages).");
@@ -66,6 +66,7 @@
           });
           MW.store.set("medwiki:chapters", chapters);
           if (Array.isArray(data.blocktypes)) MW.store.set("medwiki:blocktypes", data.blocktypes);
+          if (Array.isArray(data.structure)) MW.store.set("medwiki:structure", data.structure);
           var restored = Object.keys(data.images || {}).map(function (k) { return MW.images.restore(k, data.images[k]); });
           MW.rebuild();
           MW.toast("Imported " + Object.keys(data.pages).length + " pages.");
@@ -327,7 +328,7 @@
       '<h2 id="del-title">Delete this article?</h2>' +
       '<p class="del-name">' + MW.esc(p.title) + "</p>" +
       '<p class="dialog-hint">' + (fileBacked ? "Its file in content/ is deleted too. " : "") + "This cannot be undone. Links to it will turn red. Print or back up first if you might want it again.</p>" +
-      '<label>Type <b>delete</b> to confirm<input name="confirm" autocomplete="off" spellcheck="false" placeholder="delete"></label>' +
+      '<label><span>Type <b>delete</b> to confirm</span><input name="confirm" autocomplete="off" spellcheck="false" placeholder="delete"></label>' +
       '<div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button>' +
       '<button type="submit" class="btn btn-danger" disabled>Delete article</button></div></form>';
     document.body.appendChild(wrap);
@@ -353,6 +354,96 @@
         if (here) location.href = "index.html";
         else MW.toast("Deleted “" + p.title + "”.");
       }, function () { go.textContent = "Delete article"; go.disabled = false; MW.toast("Could not delete the file."); });
+    });
+    input.focus();
+  };
+
+  /* ---------- Name prompt (add or rename a subject or chapter) ---------- */
+
+  /* opts: { title, label, value, action }. run(name) may return a promise. */
+  MW.namePrompt = function (opts, run) {
+    var lastFocus = document.activeElement;
+    var wrap = document.createElement("div");
+    wrap.className = "overlay";
+    wrap.innerHTML =
+      '<form class="dialog name-dialog" role="dialog" aria-modal="true" aria-labelledby="nm-title">' +
+      '<h2 id="nm-title">' + MW.esc(opts.title) + "</h2>" +
+      "<label>" + MW.esc(opts.label) + '<input name="name" required maxlength="80" autocomplete="off" value="' + MW.esc(opts.value || "") + '"></label>' +
+      '<div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button><button type="submit" class="btn btn-primary">' + MW.esc(opts.action) + "</button></div></form>";
+    document.body.appendChild(wrap);
+    var form = wrap.querySelector("form");
+    function close() { wrap.remove(); if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus(); }
+    form.querySelector("[data-cancel]").addEventListener("click", close);
+    wrap.addEventListener("mousedown", function (e) { if (e.target === wrap) close(); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var name = form.elements.name.value.trim();
+      if (!name) return;
+      form.querySelector("[type=submit]").disabled = true;
+      Promise.resolve(run(name)).then(function () { close(); }, function () { close(); MW.toast("That did not work."); });
+    });
+    form.elements.name.focus();
+    form.elements.name.select();
+  };
+
+  /* ---------- Delete a subject or chapter (type "delete" to confirm) ---------- */
+
+  MW.structureDeleteDialog = function (sid, cid) {
+    var sub = MW.subject(sid);
+    var ch = cid ? MW.chapter(sid, cid) : null;
+    if (!sub || (cid && !ch)) return;
+    var pages = MW.struct.pagesIn(sid, cid);
+    var targets = [];
+    MW.subjects().forEach(function (s) {
+      if (s.id === sid && !cid) return;
+      s.chapters.forEach(function (c) {
+        if (s.id === sid && c.id === cid) return;
+        targets.push({ value: s.id + "|" + c.id, label: s.title + " › " + c.title });
+      });
+    });
+    var fileBacked = pages.some(function (p) { return p.origin === "file" || p.overridden; });
+    var canDelete = !fileBacked || MW.server.available;
+    var kind = cid ? "chapter" : "subject";
+    var lastFocus = document.activeElement;
+    var wrap = document.createElement("div");
+    wrap.className = "overlay";
+    wrap.innerHTML =
+      '<form class="dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="sd-title">' +
+      '<h2 id="sd-title">Delete this ' + kind + "?</h2>" +
+      '<p class="del-name">' + MW.esc(cid ? sub.title + " › " + ch.title : sub.title) + "</p>" +
+      (pages.length
+        ? '<p class="dialog-hint">It holds ' + pages.length + (pages.length === 1 ? " article" : " articles") + ". Choose what happens to them.</p>" +
+          '<div class="del-choices">' +
+          (targets.length ? '<label class="del-choice"><input type="radio" name="mode" value="move" checked><span>Move them to <select name="to">' + targets.map(function (t) { return '<option value="' + t.value + '">' + MW.esc(t.label) + "</option>"; }).join("") + "</select></span></label>" : "") +
+          '<label class="del-choice"><input type="radio" name="mode" value="delete"' + (targets.length ? "" : " checked") + (canDelete ? "" : " disabled") + "><span>Delete them too" +
+          (canDelete ? "" : " (needs npm start, their files are in content/)") + "</span></label></div>"
+        : '<p class="dialog-hint">It is empty, so nothing else is affected.</p>') +
+      '<label><span>Type <b>delete</b> to confirm</span><input name="confirm" autocomplete="off" spellcheck="false" placeholder="delete"></label>' +
+      '<div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button><button type="submit" class="btn btn-danger" disabled>Delete ' + kind + "</button></div></form>";
+    document.body.appendChild(wrap);
+    var form = wrap.querySelector("form");
+    var input = form.elements.confirm;
+    var go = form.querySelector("[type=submit]");
+    input.addEventListener("input", function () { go.disabled = input.value.trim().toLowerCase() !== "delete"; });
+    function close() { wrap.remove(); if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus(); }
+    form.querySelector("[data-cancel]").addEventListener("click", close);
+    wrap.addEventListener("mousedown", function (e) { if (e.target === wrap) close(); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (go.disabled) return;
+      go.disabled = true;
+      go.textContent = "Deleting…";
+      var mode = pages.length ? form.elements.mode.value : "delete";
+      var opts = mode === "move" ? { move: { subject: form.elements.to.value.split("|")[0], chapter: form.elements.to.value.split("|")[1] } } : { deletePages: true };
+      var here = new URLSearchParams(location.search).get("a");
+      var hereDeleted = mode === "delete" && pages.some(function (p) { return p.id === here; });
+      MW.struct.remove(sid, cid, opts).then(function () {
+        close();
+        if (hereDeleted) location.href = "index.html";
+        else MW.toast("Deleted the " + kind + ".");
+      }, function () { close(); MW.toast("Could not finish deleting. Some files may remain."); });
     });
     input.focus();
   };

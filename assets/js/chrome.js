@@ -101,25 +101,26 @@
 
     MW.subjects().forEach(function (s) {
       var inSubject = MW.pages.filter(function (p) { return p.subject === s.id; });
-      if (!inSubject.length) return;
+      if (!inSubject.length && q) return;
       var subjectHits = 0;
       var chapters = s.chapters.map(function (c) {
         var all = inSubject.filter(function (p) { return p.chapter === c.id; });
         var items = all.filter(hit);
-        if (!items.length) return "";
+        if (!items.length && (q || all.length)) return "";
         subjectHits += items.length;
         var key = s.id + "/" + c.id;
         var onPath = !!(current && current.subject === s.id && current.chapter === c.id);
         var open = q ? true : onPath || (key in stored ? stored[key] : false);
         var add = '<button class="node-add" type="button" data-subject="' + s.id + '" data-chapter="' + c.id + '" title="New page in ' + MW.esc(c.title) + '" aria-label="New page in ' + MW.esc(c.title) + '">' + MW.icon("plus", 13) + "</button>";
-        return node("chapter-node" + (onPath ? " on-path" : ""), key, c.title, q ? items.length + "/" + all.length : all.length, open, items.map(leaf).join(""), add);
+        return node("chapter-node" + (onPath ? " on-path" : ""), key, c.title, q ? items.length + "/" + all.length : all.length, open, items.length ? items.map(leaf).join("") : '<p class="tree-none">No articles yet</p>', add);
       }).join("");
-      if (!chapters) return;
+      if (!chapters && q) return;
+      if (!chapters) chapters = '<p class="tree-none">No chapters yet. Right-click to add one.</p>';
       var onSubject = !!(current && current.subject === s.id);
       var sOpen = q ? true : onSubject || (s.id in stored ? stored[s.id] : true);
       html += node("subject" + (onSubject ? " on-path" : ""), s.id, s.title, q ? subjectHits : inSubject.length, sOpen, chapters);
     });
-    return html || '<p class="tree-empty">' + (q ? "No articles match “" + MW.esc(query) + "”." : "No articles yet.") + "</p>";
+    return html || '<p class="tree-empty">' + (q ? "No articles match “" + MW.esc(query) + "”." : "No subjects yet. Use the + above.") + "</p>";
   }
 
   /* Right-click an article in the tree: open, print or delete. */
@@ -135,36 +136,58 @@
   function onAway(e) { if (leafMenu && !leafMenu.contains(e.target)) closeLeafMenu(); }
   function onEsc(e) { if (e.key === "Escape") { e.stopPropagation(); closeLeafMenu(); } }
 
-  function openLeafMenu(pid, x, y) {
+  function showCtx(title, items, x, y) {
     closeLeafMenu();
-    var p = MW.page(pid);
-    if (!p) return;
     leafMenu = document.createElement("div");
     leafMenu.className = "ctx-menu";
     leafMenu.setAttribute("role", "menu");
-    leafMenu.innerHTML =
-      '<p class="ctx-title">' + MW.esc(p.title) + "</p>" +
-      '<button type="button" role="menuitem" data-a="open">' + MW.icon("file", 15) + "<span>Open</span></button>" +
-      '<button type="button" role="menuitem" data-a="print">' + MW.icon("printer", 15) + "<span>Print / PDF</span></button>" +
-      '<button type="button" role="menuitem" class="danger" data-a="delete">' + MW.icon("trash", 15) + "<span>Delete…</span></button>";
+    leafMenu.innerHTML = '<p class="ctx-title">' + MW.esc(title) + "</p>" + items.map(function (it, i) {
+      return '<button type="button" role="menuitem"' + (it.danger ? ' class="danger"' : "") + ' data-i="' + i + '">' + MW.icon(it.icon, 15) + "<span>" + MW.esc(it.label) + "</span></button>";
+    }).join("");
     document.body.appendChild(leafMenu);
     var w = leafMenu.offsetWidth, h = leafMenu.offsetHeight;
     leafMenu.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + "px";
     leafMenu.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + "px";
     leafMenu.addEventListener("click", function (e) {
-      var b = e.target.closest("button[data-a]");
+      var b = e.target.closest("button[data-i]");
       if (!b) return;
-      var act = b.getAttribute("data-a");
+      var it = items[Number(b.getAttribute("data-i"))];
       closeLeafMenu();
       setRailOpen(false);
-      if (act === "open") location.href = MW.pageUrl(pid);
-      else if (act === "print") location.href = "print.html?a=" + encodeURIComponent(pid);
-      else MW.deleteArticle(pid);
+      it.run();
     });
     document.addEventListener("mousedown", onAway, true);
     document.addEventListener("keydown", onEsc, true);
     window.addEventListener("scroll", closeLeafMenu, true);
     leafMenu.querySelector("button").focus();
+  }
+
+  function openLeafMenu(pid, x, y) {
+    var p = MW.page(pid);
+    if (!p) return;
+    showCtx(p.title, [
+      { icon: "file", label: "Open", run: function () { location.href = MW.pageUrl(pid); } },
+      { icon: "printer", label: "Print / PDF", run: function () { location.href = "print.html?a=" + encodeURIComponent(pid); } },
+      { icon: "trash", label: "Delete…", danger: true, run: function () { MW.deleteArticle(pid); } },
+    ], x, y);
+  }
+
+  /* key is a subject id, or "subject/chapter". */
+  function openNodeMenu(key, x, y) {
+    var parts = key.split("/");
+    var sid = parts[0];
+    var cid = parts[1] || "";
+    var sub = MW.subject(sid);
+    var ch = cid ? MW.chapter(sid, cid) : null;
+    if (!sub || (cid && !ch)) return;
+    var items = [];
+    if (cid) items.push({ icon: "plus", label: "New page here", run: function () { MW.newPageDialog({ subject: sid, chapter: cid }); } });
+    else items.push({ icon: "plus", label: "Add chapter…", run: function () { MW.namePrompt({ title: "New chapter in " + sub.title, label: "Chapter name", action: "Add chapter" }, function (name) { return MW.struct.addChapter(sid, name); }); } });
+    items.push({ icon: "pencil", label: "Rename…", run: function () {
+      MW.namePrompt({ title: "Rename " + (cid ? "chapter" : "subject"), label: "Name", value: cid ? ch.title : sub.title, action: "Rename" }, function (name) { return MW.struct.rename(sid, cid, name); });
+    } });
+    items.push({ icon: "trash", label: "Delete…", danger: true, run: function () { MW.structureDeleteDialog(sid, cid); } });
+    showCtx(cid ? sub.title + " › " + ch.title : sub.title, items, x, y);
   }
 
   function renderRail() {
@@ -183,7 +206,7 @@
       '<button class="rail-link" type="button" data-print>' + MW.icon("printer") + "<span>Print articles</span></button>" +
       '<button class="rail-link rail-new" type="button" data-new>' + MW.icon("plus") + "<span>New page</span></button>" +
       '<div class="tree-head"><p class="rail-label">Library</p><span class="tree-tools">' +
-      '<button type="button" data-expand title="Expand all">Expand</button><button type="button" data-collapse title="Collapse all">Collapse</button></span></div>' +
+      '<button type="button" data-newsubject title="Add a subject" aria-label="Add a subject">' + MW.icon("plus", 13) + '</button><button type="button" data-expand title="Expand all">Expand</button><button type="button" data-collapse title="Collapse all">Collapse</button></span></div>' +
       '<label class="tree-filter">' + MW.icon("search", 14) + '<input type="search" placeholder="Filter articles" aria-label="Filter articles" autocomplete="off"></label></div>' +
       '<div class="tree-scroll"><div class="tree" role="tree" aria-label="Subjects and chapters"></div><div class="rail-recent"></div></div>';
 
@@ -205,6 +228,10 @@
       input.value = "";
       tree.innerHTML = treeHtml("");
     }
+    rail.querySelector("[data-newsubject]").addEventListener("click", function () {
+      setRailOpen(false);
+      MW.namePrompt({ title: "New subject", label: "Subject name", action: "Add subject" }, function (name) { return MW.struct.addSubject(name); });
+    });
     rail.querySelector("[data-expand]").addEventListener("click", function () { setAll(true); });
     rail.querySelector("[data-collapse]").addEventListener("click", function () { setAll(false); });
 
@@ -217,10 +244,17 @@
 
     tree.addEventListener("contextmenu", function (e) {
       var leafEl = e.target.closest(".leaf");
-      if (!leafEl) return;
-      e.preventDefault();
-      var pid = new URLSearchParams(leafEl.getAttribute("href").split("?")[1] || "").get("a");
-      if (pid) openLeafMenu(pid, e.clientX, e.clientY);
+      if (leafEl) {
+        e.preventDefault();
+        var pid = new URLSearchParams(leafEl.getAttribute("href").split("?")[1] || "").get("a");
+        if (pid) openLeafMenu(pid, e.clientX, e.clientY);
+        return;
+      }
+      var row = e.target.closest(".node-row");
+      if (row) {
+        e.preventDefault();
+        openNodeMenu(row.parentNode.getAttribute("data-key"), e.clientX, e.clientY);
+      }
     });
 
     tree.addEventListener("click", function (e) {

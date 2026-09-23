@@ -784,3 +784,44 @@
   background: var(--warning-soft);
   color: var(--destructive);
 }
+
+/* ---------- Subjects and chapters: empty notes, delete choices ---------- */
+
+.tree-none {
+  padding: 4px 8px 6px 30px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.name-dialog {
+  width: min(400px, 100%);
+}
+
+.del-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog .del-choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  color: var(--foreground);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.dialog .del-choice input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.del-choice select {
+  max-width: 230px;
+  height: 30px;
+  font-size: 13px;
+}

@@ -9,6 +9,7 @@
  *   POST /api/delete    { id }                  → removes content/<id>.js and its manifest entry
  *   POST /api/image     { data }                → content/images/<hash>.<ext>, returns { path }
  *   POST /api/chapters  { extra }               → content/_chapters.js
+ *   POST /api/structure { structure }           → content/_structure.js (subjects and chapters)
  */
 const http = require("http");
 const fs = require("fs");
@@ -106,6 +107,12 @@ async function api(req, res, url) {
       const name = crypto.createHash("sha1").update(buf).digest("hex").slice(0, 10) + "." + ext;
       writeAtomic(path.join(CONTENT, "images", name), buf);
       return reply(res, 200, { ok: true, path: "content/images/" + name });
+    }
+    if (url === "/api/structure") {
+      const ok = Array.isArray(b.structure) && b.structure.every((s) => s && typeof s.id === "string" && typeof s.title === "string" && Array.isArray(s.chapters) && s.chapters.every((c) => c && typeof c.id === "string" && typeof c.title === "string"));
+      if (!ok) return reply(res, 400, { error: "Bad payload" });
+      writeAtomic(path.join(CONTENT, "_structure.js"), "MedWiki.structure = " + JSON.stringify(b.structure, null, 2) + ";\n");
+      return reply(res, 200, { ok: true });
     }
     if (url === "/api/chapters") {
       if (!b.extra || typeof b.extra !== "object") return reply(res, 400, { error: "Bad payload" });

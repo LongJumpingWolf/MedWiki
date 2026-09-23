@@ -1,0 +1,1 @@
+MedWiki.structure = null;
