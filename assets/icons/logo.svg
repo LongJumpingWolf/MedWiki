@@ -1,11 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254">
   <defs>
     <linearGradient id="g" x1="0.05" y1="0" x2="0.95" y2="1">
-      <stop offset="0" stop-color="#5b7fa3"/>
-      <stop offset="1" stop-color="#20406a"/>
+      <stop offset="0" stop-color="#5b8fc4"/>
+      <stop offset="0.45" stop-color="#2e63a8"/>
+      <stop offset="1" stop-color="#163669"/>
     </linearGradient>
   </defs>
   <rect width="1254" height="1254" rx="250" fill="url(#g)"/>
-  <rect x="262" y="338" width="122" height="580" rx="61" fill="#abc8dd"/>
-  <path fill="#fff" d="M414 890V370Q414 338 446 338H452Q482 338 500 360L680 565 872 356Q892 338 918 338H962Q993 338 993 372V886Q993 918 960 918H890Q856 918 856 886V592L698 745Q680 762 662 745L515 595V886Q515 918 482 918H448Q414 918 414 890Z"/>
+  <rect x="270" y="320" width="121" height="554" rx="60" fill="#b5d6ee"/>
+  <rect x="419" y="897" width="567" height="61" rx="30" fill="#b5d6ee"/>
+  <path fill="#fff" transform="translate(419 320) scale(0.983 0.945) translate(-414 -338)" d="M414 890V370Q414 338 446 338H452Q482 338 500 360L680 565 872 356Q892 338 918 338H962Q993 338 993 372V886Q993 918 960 918H890Q856 918 856 886V592L698 745Q680 762 662 745L515 595V886Q515 918 482 918H448Q414 918 414 890Z"/>
 </svg>
