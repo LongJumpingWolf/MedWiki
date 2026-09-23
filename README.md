@@ -128,3 +128,8 @@ The site is fully static, so there is nothing to build. In Vercel: **Add New →
 - Icons: `assets/favicon.svg` and `favicon.ico` (browser tab), `assets/icons/` (home-screen, maskable and Apple icons, the vector `logo.svg`, and `og-image.png` for link previews), `site.webmanifest` (installable app).
 - `404.html` is the not-found page; `.vercelignore` keeps tests and tools out of the deployment.
 - Link previews need an absolute image URL. Once you know your domain, add `<meta property="og:image" content="https://YOUR-DOMAIN/assets/icons/og-image.png">` to `index.html`.
+
+## Finishing articles and choosing what to write
+
+- Every article is **in progress** until you press **Mark as finished** at its end (a seal stamps the page). **Reopen for editing** puts it back. The date is stored as `finished:` in the front matter. Home shows how many are in progress.
+- **Help me choose** (home, or Ctrl+K) picks one of your in-progress articles with a wheel of fortune, a slot machine, a fortune cookie or a bowl of chits. "Surprise me" picks the game too.

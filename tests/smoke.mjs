@@ -139,6 +139,49 @@ await test("settings and print picker open; block types can be added and removed
   await ev("document.querySelector('.block-types-dialog [data-done]').click(); MedWiki.blockTypes.reset()");
 });
 
+await test("finishing an article: seal, saved to the file, home count drops, reopen restores it", async () => {
+  await go(BASE + "article.html?a=digoxin");
+  ok(await ev("!!document.querySelector('.end-mark.wip [data-finish]') && document.querySelector('.progress-chip').textContent.includes('In progress')"), "in-progress end mark missing");
+  await ev("document.querySelector('[data-finish]').click()");
+  ok(await waitFor("!!document.querySelector('.end-mark.done .end-title')", 4000), "finished seal did not appear");
+  ok(await ev("document.querySelector('.end-title').textContent === 'The End' && document.querySelector('.progress-chip').textContent.includes('Finished')"), "finished state missing");
+  await sleep(400);
+  ok(/^finished: \d{4}-\d{2}-\d{2}$/m.test(read("content/digoxin.js")), "finished date not written to the file");
+  await go(BASE + "index.html");
+  ok(await ev("document.querySelector('.progress-count strong').textContent === '" + (fixtureIds.length - 1) + "'"), "in-progress count should drop by one");
+  await go(BASE + "article.html?a=digoxin");
+  await ev("document.querySelector('[data-reopen]').click()");
+  ok(await waitFor("!!document.querySelector('.end-mark.wip')", 4000), "reopen did not restore in-progress");
+  await sleep(400);
+  ok(!/^finished:/m.test(read("content/digoxin.js")), "finished should be removed from the file");
+});
+
+await test("help me choose: all four games land on an article you can open", async () => {
+  await go(BASE + "index.html");
+  await ev("document.querySelector('[data-choose]').click()");
+  ok(await ev("!!document.querySelector('.choose-dialog .wheel')"), "wheel missing");
+  await ev("document.querySelector('.choose-stage [data-go]').click()");
+  ok(await waitFor("!!document.querySelector('.choose-result:not([hidden]) .choose-pick')", 8000), "wheel never finished");
+  ok(await ev("document.querySelector('.choose-pick').getAttribute('href').startsWith('article.html?a=')"), "wheel result not a link");
+  await ev("document.querySelector('[data-game=slots]').click()");
+  ok(await ev("document.querySelectorAll('.reel').length === 3"), "slot reels missing");
+  await ev("document.querySelector('.slot-lever').click()");
+  ok(await waitFor("!!document.querySelector('.choose-result:not([hidden]) .choose-pick')", 9000), "slots never finished");
+  ok(await ev("document.querySelector('.slot-machine').classList.contains('jackpot')"), "jackpot state missing");
+  await ev("document.querySelector('[data-game=cookie]').click()");
+  await ev("document.querySelector('.choose-stage [data-go]').click()");
+  ok(await waitFor("!!document.querySelector('.choose-result:not([hidden]) .choose-pick')", 4000), "cookie never cracked");
+  ok(await ev("document.querySelector('.slip span').textContent.length > 10"), "fortune text missing");
+  await ev("document.querySelector('[data-game=chits]').click()");
+  ok(await ev("document.querySelectorAll('.chit').length === 8"), "chits missing");
+  await ev("document.querySelector('.chit').click()");
+  ok(await waitFor("!!document.querySelector('.choose-result:not([hidden]) .choose-pick')", 4000), "chit never opened");
+  await ev("document.querySelector('[data-again]').click()");
+  ok(await ev("document.querySelector('.choose-result').hidden === true"), "go again should reset");
+  await ev("document.querySelector('.choose-dialog [data-close]').click()");
+  ok(await ev("!document.querySelector('.choose-dialog')"), "dialog should close");
+});
+
 await test("article renders with study blocks, header strip and no raw markup", async () => {
   await go(BASE + "article.html?a=tuberculosis");
   ok((await ev("document.querySelector('h1').textContent")) === "Tuberculosis");

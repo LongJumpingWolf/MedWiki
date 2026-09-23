@@ -60,8 +60,9 @@
       var ib = viewed.indexOf(b.id);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
-    var written = byEdited.filter(function (p) { return p.body.trim(); });
-    var latest = written[0] || byEdited[0];
+    var open = byEdited.filter(function (p) { return !p.finished; });
+    var latest = open.filter(function (p) { return p.body.trim(); })[0] || open[0] || byEdited[0];
+    var wip = MW.inProgress();
     var recent = byEdited.filter(function (p) { return p !== latest; }).slice(0, 4);
 
     var localCount = Object.keys(MW.store.get("medwiki:pages", {})).length;
@@ -76,7 +77,7 @@
 
     function recentRow(p) {
       return '<a class="recent-item" href="' + MW.pageUrl(p.id) + '"><span class="t">' + MW.esc(p.title) + "</span>" +
-        '<span class="m">' + (p.edited ? MW.fmtDate(p.edited) : "") + "</span></a>";
+        '<span class="m">' + (p.finished ? '<span class="done-tick">' + MW.icon("check", 12) + "Finished</span>" : p.edited ? MW.fmtDate(p.edited) : "") + "</span></a>";
     }
 
     html +=
@@ -95,6 +96,16 @@
         '<span class="arrow">' + MW.icon("chevron-right", 16) + "</span></div></a>";
     }
 
+    html += '<section class="progress-card" id="in-progress"><div class="progress-count"><strong>' + wip.length + "</strong><span>" +
+      (wip.length === 1 ? "article" : "articles") + " still in progress</span></div>" +
+      (wip.length
+        ? '<div class="progress-chips">' + wip.slice(0, 6).map(function (p) {
+          return '<a href="' + MW.pageUrl(p.id) + '">' + MW.esc(p.title) + "</a>";
+        }).join("") + (wip.length > 6 ? '<span class="more">+' + (wip.length - 6) + " more</span>" : "") + "</div>"
+        : '<p class="empty-state">Everything is finished. Time to start something new.</p>') +
+      (MW.pages.length > 1 ? '<button class="btn btn-primary" type="button" data-choose>' + MW.icon("dices", 16) + "<span>Help me choose</span></button>" : "") +
+      "</section>";
+
     if (recent.length) {
       html += section("recent", "Recently written", "", '<div class="recent-list">' + recent.map(recentRow).join("") + "</div>");
     }
@@ -104,6 +115,8 @@
     if (bk) bk.addEventListener("click", function () { MW.exportBackup(); el.querySelector(".backup-note").remove(); });
     var sn = el.querySelector("[data-snooze]");
     if (sn) sn.addEventListener("click", function () { MW.store.set("medwiki:backupSnooze", Date.now() + 3 * 86400000); el.querySelector(".backup-note").remove(); });
+    var ch = el.querySelector("[data-choose]");
+    if (ch) ch.addEventListener("click", function () { MW.chooseDialog(); });
     el.querySelectorAll("[data-new]").forEach(function (b) { b.addEventListener("click", function () { MW.newPageDialog({}); }); });
   }
 

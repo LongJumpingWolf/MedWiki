@@ -44,3 +44,10 @@
     break-inside: avoid;
   }
 }
+
+@media print {
+  .end-mark.wip,
+  .end-reopen {
+    display: none !important;
+  }
+}

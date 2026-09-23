@@ -49,9 +49,12 @@
   place-items: center;
   width: 31px;
   height: 31px;
-  border: 1px solid var(--foreground);
-  font-size: 20px;
-  font-weight: 500;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #5b8fc4, #163669);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .wordmark small {

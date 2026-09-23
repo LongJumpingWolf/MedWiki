@@ -44,6 +44,7 @@
       '<li class="imp" title="Importance"><span class="dots" aria-hidden="true">' + dots + "</span>" + IMPORTANCE[page.importance] + "</li>" +
       (r.pyq ? "<li>PYQ ×" + r.pyq + "</li>" : "") +
       "<li>" + mins + " min read</li>" +
+      '<li class="progress-chip ' + (page.finished ? "is-done" : "is-wip") + '">' + (page.finished ? MW.icon("check", 13) + "Finished" : "In progress") + "</li>" +
       (page.edited ? "<li>Edited " + MW.fmtDate(page.edited) + "</li>" : "") +
       '<li><button type="button" class="status status-' + status + '" data-status title="Click to change revision status"><i></i>' + STATUS[status] + "</button></li>" + tagsLi + "</ul>"
     );
@@ -74,6 +75,55 @@
       cell(next, "next", "Next", MW.esc(next ? next.title : "") + " →") + "</nav>";
   }
 
+  var justFinished = false;
+
+  /* The last thing on every article: still in progress, or sealed as finished. */
+  function endMark(page, fresh) {
+    var seal = function (cls) {
+      return '<svg class="end-seal ' + cls + '" viewBox="0 0 64 64" aria-hidden="true"><circle class="seal-ring" cx="32" cy="32" r="28"/>' +
+        '<circle class="seal-inner" cx="32" cy="32" r="22"/><path class="seal-check" d="M21 33.5l8 8 15-17"/></svg>';
+    };
+    var rule = function (cls) { return '<div class="end-rule"><span></span>' + seal(cls) + "<span></span></div>"; };
+    if (page.finished) {
+      return '<section class="end-mark done' + (fresh ? " fresh" : "") + '" data-end aria-label="End of article">' + rule("") +
+        '<p class="end-title">The End</p><p class="end-sub">Finished ' + MW.fmtDate(page.finished) + "</p>" +
+        '<button type="button" class="end-reopen" data-reopen>Reopen for editing</button></section>';
+    }
+    var empty = !page.body.trim();
+    return '<section class="end-mark wip" data-end aria-label="End of article">' + rule("dashed") +
+      '<p class="end-title">Still being written</p>' +
+      '<p class="end-sub">This stays in progress until you mark it finished.</p>' +
+      '<button type="button" class="btn btn-primary end-finish" data-finish' + (empty ? ' disabled title="Write something first"' : "") + ">" + MW.icon("check", 16) + "<span>Mark as finished</span></button></section>";
+  }
+
+  function celebrate(section) {
+    if (!section) return;
+    MW.toast("Article finished. Nicely done.");
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var seal = section.querySelector(".end-seal");
+    var box = document.createElement("div");
+    box.className = "confetti";
+    box.setAttribute("aria-hidden", "true");
+    section.appendChild(box);
+    var colors = ["#5b8fc4", "#2e63a8", "#8fd3b6", "#e9c46a", "#e76f51", "#b5d6ee"];
+    var r = seal.getBoundingClientRect();
+    var b = section.getBoundingClientRect();
+    var cx = r.left - b.left + r.width / 2;
+    var cy = r.top - b.top + r.height / 2;
+    for (var i = 0; i < 34; i++) {
+      var p = document.createElement("i");
+      var ang = Math.random() * Math.PI * 2;
+      var dist = 70 + Math.random() * 140;
+      p.style.cssText = "left:" + cx + "px;top:" + cy + "px;background:" + colors[i % colors.length] + ";width:" + (5 + Math.random() * 5) + "px;height:" + (7 + Math.random() * 6) + "px";
+      box.appendChild(p);
+      p.animate([
+        { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+        { transform: "translate(" + Math.cos(ang) * dist + "px," + (Math.sin(ang) * dist + 60) + "px) rotate(" + (Math.random() * 720 - 360) + "deg)", opacity: 0 },
+      ], { duration: 900 + Math.random() * 500, easing: "cubic-bezier(.15,.7,.3,1)", fill: "forwards" });
+    }
+    setTimeout(function () { box.remove(); }, 1600);
+  }
+
   function renderRead() {
     if (root._editor) { root._editor.destroy(); root._editor = null; }
     if (root._visual) { root._visual.destroy(); root._visual = null; }
@@ -102,6 +152,7 @@
       (page.body.trim()
         ? '<div class="prose">' + r.html + "</div>"
         : '<p class="empty-page">This page is empty. Press <kbd>E</kbd> to start writing.</p>') +
+      endMark(page, justFinished) +
       (back.length
         ? '<p class="backlinks"><span>Referenced by</span> ' + back.map(function (p) {
           return '<a href="' + MW.pageUrl(p.id) + '">' + MW.esc(p.title) + "</a>";
@@ -117,6 +168,12 @@
       note.className = "empty-page";
       note.textContent = "Nothing to show in revision mode: this page has only plain paragraphs. Use “Show everything” above to read it.";
       prose.after(note);
+    }
+
+    if (justFinished) {
+      justFinished = false;
+      var endEl = root.querySelector("[data-end]");
+      if (endEl) { endEl.scrollIntoView({ block: "center", behavior: "smooth" }); celebrate(endEl); }
     }
 
     renderContext(r, page);
@@ -508,6 +565,10 @@
         MW.commit(id, { status: next }, null, { touch: false }).then(function () { renderRead(); });
         return;
       }
+      var fin = e.target.closest("[data-finish]");
+      if (fin && mode === "read") { justFinished = true; MW.setFinished(id, true); return; }
+      var reopen = e.target.closest("[data-reopen]");
+      if (reopen && mode === "read") { MW.setFinished(id, false); return; }
       var rc = e.target.closest(".recall-toggle");
       if (rc) { MW.toggleRecall(); return; }
       var mk = e.target.closest(".prose mark");

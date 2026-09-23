@@ -130,7 +130,7 @@ window.MedWiki = window.MedWiki || {};
 
   /* ---------- Page source format (front matter + Markdown body) ---------- */
 
-  var FIELDS = ["title", "subject", "chapter", "kind", "aliases", "tags", "importance", "status", "edited", "summary"];
+  var FIELDS = ["title", "subject", "chapter", "kind", "aliases", "tags", "importance", "status", "finished", "edited", "summary"];
 
   function csv(s) {
     return String(s || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
@@ -169,6 +169,7 @@ window.MedWiki = window.MedWiki || {};
       tags: csv(m.tags),
       importance: m.importance || "medium",
       status: m.status || "draft",
+      finished: m.finished || "",
       edited: m.edited || "",
       summary: m.summary || "",
       body: p.body,
@@ -284,7 +285,7 @@ window.MedWiki = window.MedWiki || {};
   function fieldsOf(p) {
     return {
       title: p.title, subject: p.subject, chapter: p.chapter, kind: p.kind, aliases: p.aliases,
-      tags: p.tags, importance: p.importance, status: p.status, edited: p.edited, summary: p.summary,
+      tags: p.tags, importance: p.importance, status: p.status, finished: p.finished, edited: p.edited, summary: p.summary,
     };
   }
 
@@ -327,6 +328,15 @@ window.MedWiki = window.MedWiki || {};
     if (!MW.savePage(id, changes, body, opts)) return Promise.resolve("failed");
     if (!MW.server.available) return Promise.resolve("browser");
     return MW.persist(id).then(function () { return "file"; }, function () { return "browser"; });
+  };
+
+  /* An article stays "in progress" until it is marked finished (front matter: finished: <date>). */
+  MW.inProgress = function () {
+    return MW.pages.filter(function (p) { return !p.finished; });
+  };
+
+  MW.setFinished = function (id, done) {
+    return MW.commit(id, { finished: done ? MW.today() : "" }, null, { touch: false });
   };
 
   /* Resolves to the new page id. */
