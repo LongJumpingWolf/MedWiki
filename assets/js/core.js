@@ -103,6 +103,9 @@ window.MedWiki = window.MedWiki || {};
 
   function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
+  /* localhost, 127.0.0.1 (Live Server) or a file: page. The public site hides empty preset subjects and chapters. */
+  MW.isLocal = location.protocol === "file:" || /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(location.hostname);
+
   /* Once you add, rename or delete a subject or chapter, the whole tree lives in content/_structure.js
      (or in this browser until the server writes it) and replaces the defaults in data.js. */
   MW.structureOverride = function () {

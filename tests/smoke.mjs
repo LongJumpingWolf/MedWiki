@@ -719,6 +719,14 @@ await test("add, rename and delete subjects and chapters; articles are moved or 
   ok(await ev("!!MedWiki.page('skull')"), "moved article must survive the subject deletion");
 });
 
+await test("public hosts hide empty preset subjects and chapters; localhost shows them", async () => {
+  await go(BASE + "index.html");
+  ok(await ev("[...document.querySelectorAll('.tree .node-count')].some((n) => n.textContent === '0')"), "localhost should show empty chapters");
+  await ev("MedWiki.isLocal = false; MedWiki.rebuild()");
+  ok(await ev("[...document.querySelectorAll('.tree .node-count')].every((n) => n.textContent !== '0')"), "a public host should hide empty ones");
+  await ev("MedWiki.isLocal = true");
+});
+
 console.log("\nBrowser-only mode (no server)\n");
 
 await test("file:// falls back to saving in the browser", async () => {
