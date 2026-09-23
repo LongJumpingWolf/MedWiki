@@ -310,6 +310,53 @@
     filter.focus();
   };
 
+  /* ---------- Delete an article (type "delete" to confirm) ---------- */
+
+  MW.deleteArticle = function (id) {
+    var p = MW.page(id);
+    if (!p) return;
+    var fileBacked = p.origin === "file" || p.overridden;
+    if (fileBacked && !MW.server.available) {
+      return MW.toast("This article is a file in content/. Run npm start to delete it, or remove the file and push.");
+    }
+    var lastFocus = document.activeElement;
+    var wrap = document.createElement("div");
+    wrap.className = "overlay";
+    wrap.innerHTML =
+      '<form class="dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="del-title">' +
+      '<h2 id="del-title">Delete this article?</h2>' +
+      '<p class="del-name">' + MW.esc(p.title) + "</p>" +
+      '<p class="dialog-hint">' + (fileBacked ? "Its file in content/ is deleted too. " : "") + "This cannot be undone. Links to it will turn red. Print or back up first if you might want it again.</p>" +
+      '<label>Type <b>delete</b> to confirm<input name="confirm" autocomplete="off" spellcheck="false" placeholder="delete"></label>' +
+      '<div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button>' +
+      '<button type="submit" class="btn btn-danger" disabled>Delete article</button></div></form>';
+    document.body.appendChild(wrap);
+    var form = wrap.querySelector("form");
+    var input = form.elements.confirm;
+    var go = form.querySelector("[type=submit]");
+    input.addEventListener("input", function () { go.disabled = input.value.trim().toLowerCase() !== "delete"; });
+    function close() { wrap.remove(); if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus(); }
+    form.querySelector("[data-cancel]").addEventListener("click", close);
+    wrap.addEventListener("mousedown", function (e) { if (e.target === wrap) close(); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (go.disabled) return;
+      go.disabled = true;
+      go.textContent = "Deleting…";
+      MW.store.remove("medwiki:draft:" + id);
+      if (MW.bookmarks.list().indexOf(id) !== -1) MW.bookmarks.toggle(id);
+      var work = fileBacked ? MW.deleteFile(id) : Promise.resolve(MW.discardLocal(id));
+      work.then(function () {
+        close();
+        var here = new URLSearchParams(location.search).get("a") === id;
+        if (here) location.href = "index.html";
+        else MW.toast("Deleted “" + p.title + "”.");
+      }, function () { go.textContent = "Delete article"; go.disabled = false; MW.toast("Could not delete the file."); });
+    });
+    input.focus();
+  };
+
   /* ---------- Settings ---------- */
 
   function ago(ts) {

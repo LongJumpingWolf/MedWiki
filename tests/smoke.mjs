@@ -182,6 +182,28 @@ await test("help me choose: all four games land on an article you can open", asy
   ok(await ev("!document.querySelector('.choose-dialog')"), "dialog should close");
 });
 
+await test("right-click an article in the tree to delete it; you must type delete", async () => {
+  await go(BASE + "index.html");
+  await ev("MedWiki.createPage({ title: 'Trash Me', subject: 'pathology', chapter: 'general' })");
+  await sleep(600);
+  ok(existsSync(file("content/trash-me.js")), "throwaway page file missing");
+  await go(BASE + "index.html");
+  await ev("document.querySelector('.leaf[href=\"article.html?a=trash-me\"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }))");
+  ok(await ev("!!document.querySelector('.ctx-menu [data-a=delete]')"), "context menu missing");
+  await ev("document.querySelector('.ctx-menu [data-a=delete]').click()");
+  ok(await ev("document.querySelector('.delete-dialog [type=submit]').disabled === true"), "delete must start disabled");
+  await ev("(()=>{const i=document.querySelector('.delete-dialog input'); i.value='del'; i.dispatchEvent(new Event('input'))})()");
+  ok(await ev("document.querySelector('.delete-dialog [type=submit]').disabled === true"), "partial text must not unlock delete");
+  await ev("(()=>{const i=document.querySelector('.delete-dialog input'); i.value='delete'; i.dispatchEvent(new Event('input'))})()");
+  ok(await ev("document.querySelector('.delete-dialog [type=submit]').disabled === false"), "typing delete should unlock");
+  await ev("document.querySelector('.delete-dialog [type=submit]').click()");
+  ok(await waitFor("!document.querySelector('.delete-dialog')", 4000), "dialog should close");
+  await sleep(400);
+  ok(!existsSync(file("content/trash-me.js")), "file should be deleted");
+  ok(!read("assets/js/data.js").includes('"trash-me"'), "manifest entry should be removed");
+  ok(await ev("!document.querySelector('.leaf[href=\"article.html?a=trash-me\"]')"), "article should leave the tree");
+});
+
 await test("article renders with study blocks, header strip and no raw markup", async () => {
   await go(BASE + "article.html?a=tuberculosis");
   ok((await ev("document.querySelector('h1').textContent")) === "Tuberculosis");

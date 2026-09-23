@@ -122,6 +122,51 @@
     return html || '<p class="tree-empty">' + (q ? "No articles match “" + MW.esc(query) + "”." : "No articles yet.") + "</p>";
   }
 
+  /* Right-click an article in the tree: open, print or delete. */
+  var leafMenu = null;
+  function closeLeafMenu() {
+    if (!leafMenu) return;
+    leafMenu.remove();
+    leafMenu = null;
+    document.removeEventListener("mousedown", onAway, true);
+    document.removeEventListener("keydown", onEsc, true);
+    window.removeEventListener("scroll", closeLeafMenu, true);
+  }
+  function onAway(e) { if (leafMenu && !leafMenu.contains(e.target)) closeLeafMenu(); }
+  function onEsc(e) { if (e.key === "Escape") { e.stopPropagation(); closeLeafMenu(); } }
+
+  function openLeafMenu(pid, x, y) {
+    closeLeafMenu();
+    var p = MW.page(pid);
+    if (!p) return;
+    leafMenu = document.createElement("div");
+    leafMenu.className = "ctx-menu";
+    leafMenu.setAttribute("role", "menu");
+    leafMenu.innerHTML =
+      '<p class="ctx-title">' + MW.esc(p.title) + "</p>" +
+      '<button type="button" role="menuitem" data-a="open">' + MW.icon("file", 15) + "<span>Open</span></button>" +
+      '<button type="button" role="menuitem" data-a="print">' + MW.icon("printer", 15) + "<span>Print / PDF</span></button>" +
+      '<button type="button" role="menuitem" class="danger" data-a="delete">' + MW.icon("trash", 15) + "<span>Delete…</span></button>";
+    document.body.appendChild(leafMenu);
+    var w = leafMenu.offsetWidth, h = leafMenu.offsetHeight;
+    leafMenu.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + "px";
+    leafMenu.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + "px";
+    leafMenu.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-a]");
+      if (!b) return;
+      var act = b.getAttribute("data-a");
+      closeLeafMenu();
+      setRailOpen(false);
+      if (act === "open") location.href = MW.pageUrl(pid);
+      else if (act === "print") location.href = "print.html?a=" + encodeURIComponent(pid);
+      else MW.deleteArticle(pid);
+    });
+    document.addEventListener("mousedown", onAway, true);
+    document.addEventListener("keydown", onEsc, true);
+    window.addEventListener("scroll", closeLeafMenu, true);
+    leafMenu.querySelector("button").focus();
+  }
+
   function renderRail() {
     if (!rail) return;
     var current = currentId && MW.page(currentId);
@@ -168,6 +213,14 @@
       if (e.key === "Escape" && input.value) { e.stopPropagation(); input.value = ""; tree.innerHTML = treeHtml(""); }
       else if (e.key === "Enter") { var first = tree.querySelector(".leaf"); if (first) location.href = first.getAttribute("href"); }
       else if (e.key === "ArrowDown") { e.preventDefault(); var f = tree.querySelector(".leaf, .node-trigger"); if (f) f.focus(); }
+    });
+
+    tree.addEventListener("contextmenu", function (e) {
+      var leafEl = e.target.closest(".leaf");
+      if (!leafEl) return;
+      e.preventDefault();
+      var pid = new URLSearchParams(leafEl.getAttribute("href").split("?")[1] || "").get("a");
+      if (pid) openLeafMenu(pid, e.clientX, e.clientY);
     });
 
     tree.addEventListener("click", function (e) {

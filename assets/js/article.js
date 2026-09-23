@@ -511,16 +511,7 @@
       location.reload();
     } });
     P.register({ label: "Delete this page", icon: "trash", keywords: "remove", when: function () { var p = MW.page(id); return p && (p.origin === "local" || MW.server.available) && !(p.overridden && !MW.server.available); }, run: function () {
-      var p = MW.page(id);
-      var fromFile = p.origin === "file" || p.overridden;
-      if (!confirm(fromFile ? "Delete this page and its file in content/? This cannot be undone. Links to it will become red links." : "Delete this page permanently? Links to it will become red links.")) return;
-      MW.store.remove(draftKey());
-      if (fromFile && MW.server.available) {
-        MW.deleteFile(id).then(function () { location.href = "index.html"; }, function () { MW.toast("Could not delete the file."); });
-        return;
-      }
-      MW.discardLocal(id);
-      location.href = "index.html";
+      MW.deleteArticle(id);
     } });
   }
 
