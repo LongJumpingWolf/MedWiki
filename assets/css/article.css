@@ -1,0 +1,835 @@
+/*
+ * Article reading view. Restrained on purpose: typography first, thin rules,
+ * one accent colour. Boxes appear only where they carry meaning (study blocks).
+ */
+
+.article {
+  width: min(100%, var(--col));
+  margin: 0 auto;
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-size: var(--prose-size);
+  line-height: var(--prose-leading);
+}
+
+/* ---------- Header ---------- */
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 16px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+.breadcrumbs a {
+  color: var(--muted-foreground);
+}
+
+.breadcrumbs a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.breadcrumbs svg {
+  width: 12px;
+  height: 12px;
+}
+
+.article-kicker {
+  margin-bottom: 6px;
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.article h1 {
+  font-size: clamp(34px, 4.2vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+.aliases {
+  margin-top: 6px;
+  color: var(--muted-foreground);
+  font-size: 15px;
+  font-style: italic;
+}
+
+.bookmark-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.bookmark-control:hover,
+.bookmark-control.saved {
+  color: var(--primary);
+}
+
+.bookmark-control svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bookmark-control.saved svg {
+  fill: currentColor;
+}
+
+/* Compact information strip: not a dashboard. */
+.info-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 12px 0 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.info-strip li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 14px;
+  border-left: 1px solid var(--border);
+}
+
+.info-strip li:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.dots i.on {
+  background: var(--primary);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  margin: -2px 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status:hover {
+  border-color: var(--primary);
+}
+
+.status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+
+.status-review i {
+  background: oklch(72% 0.14 75);
+}
+
+.status-revised i {
+  background: var(--clinical);
+}
+
+.info-strip .tags a {
+  margin-right: 8px;
+  color: var(--muted-foreground);
+}
+
+.info-strip .tags a:hover {
+  color: var(--primary);
+}
+
+.info-strip .tags {
+  flex-wrap: wrap;
+}
+
+.tag-line {
+  margin-top: 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+.tag-line a {
+  margin-right: 10px;
+  color: var(--muted-foreground);
+}
+
+.tag-line a:hover {
+  color: var(--primary);
+}
+
+/* ---------- Body text ---------- */
+
+.prose {
+  margin-top: 18px;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose p {
+  margin: 0 0 var(--para-gap);
+}
+
+.prose h2 {
+  margin: 1.4em 0 0.45em;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.6em;
+  line-height: 1.2;
+}
+
+.prose h3 {
+  margin: 1.1em 0 0.25em;
+  font-size: 1.2em;
+  line-height: 1.25;
+}
+
+.prose h4 {
+  margin: 1em 0 0.2em;
+  font-size: 1.05em;
+}
+
+.prose :is(h2, h3, h4) {
+  position: relative;
+  scroll-margin-top: 92px;
+}
+
+.h-anchor {
+  margin-left: 10px;
+  color: var(--border);
+  font-family: var(--font-sans);
+  font-size: 0.6em;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.prose :is(h2, h3, h4):hover .h-anchor,
+.h-anchor:focus {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.prose a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Wiki links: internal links blue, missing pages red (click to create). */
+.wikilink {
+  text-decoration: none !important;
+  border-bottom: 1px solid color-mix(in oklab, var(--primary) 40%, transparent);
+}
+
+.wikilink:hover {
+  border-bottom-color: currentColor;
+}
+
+.wikilink.missing {
+  color: var(--destructive);
+  border-bottom: 1px dashed color-mix(in oklab, var(--destructive) 55%, transparent);
+}
+
+.prose strong {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
+.prose mark {
+  padding: 0 0.15em;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: var(--foreground);
+}
+
+.prose code {
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  background: var(--paper-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82em;
+}
+
+.prose pre {
+  margin: 0 0 var(--para-gap);
+  padding: 10px 14px;
+  overflow-x: auto;
+  border-radius: 4px;
+  background: var(--paper-soft);
+  line-height: 1.5;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 var(--para-gap);
+  padding-left: 1.4em;
+}
+
+.prose ul {
+  list-style: disc;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li {
+  margin: 0.1em 0;
+  padding-left: 0.15em;
+}
+
+.prose li::marker {
+  color: var(--muted-foreground);
+}
+
+.prose li > :is(ul, ol) {
+  margin: 0.1em 0 0.15em;
+}
+
+.prose hr {
+  margin: 1.2em 0;
+  border-top: 1px solid var(--border);
+}
+
+.prose blockquote {
+  margin: 0 0 var(--para-gap);
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.prose figure {
+  margin: 1em 0;
+}
+
+.prose figure img,
+.prose p img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+.prose figcaption {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+/* ---------- Tables ---------- */
+
+.table-wrap {
+  margin: 0.9em 0;
+  overflow-x: auto;
+}
+
+.prose table {
+  width: 100%;
+  border-top: 1px solid var(--foreground);
+  border-bottom: 1px solid var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.prose th,
+.prose td {
+  padding: 5px 12px 5px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  color: var(--foreground);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prose tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.prose td:first-child {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* ---------- Study blocks ---------- */
+
+.block {
+  --tone: var(--muted-foreground);
+  margin: 1em 0;
+  padding: 8px 14px;
+  border-left: 2px solid var(--tone);
+  background: color-mix(in oklab, var(--tone) 7%, transparent);
+  border-radius: 0 4px 4px 0;
+}
+
+.block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 1px;
+  font-family: var(--font-sans);
+}
+
+.block-label {
+  color: var(--tone);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.block-title {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.block-body > :last-child {
+  margin-bottom: 0;
+}
+
+.block-body ul,
+.block-body ol {
+  margin-bottom: 0.4em;
+}
+
+.block-summary .block-body > p:first-child {
+  color: var(--foreground);
+  font-size: 1.05em;
+}
+
+.block-pyq .block-body p {
+  font-size: 0.95em;
+  color: var(--foreground);
+}
+
+/* Classification: nested lists lay out as columns instead of one tall stack. */
+.block-classification .block-body > ul:has(li li) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px 28px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.block-classification .block-body > ul:has(li li) > li {
+  padding-left: 0;
+  margin: 0;
+}
+
+.block-classification .block-body > ul:has(li li) > li > ul {
+  margin: 2px 0 0;
+  padding-left: 1.1em;
+}
+
+.block-classification .block-body > ul:has(li li) > li > ul > li {
+  margin: 0.05em 0;
+}
+
+/* Flow: a row of steps. */
+.flow {
+  margin: 0.7em 0;
+  font-family: var(--font-sans);
+}
+
+.flow-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-row + .flow-row {
+  margin-top: 8px;
+}
+
+.flow {
+  --flow-line: color-mix(in oklab, var(--primary) 55%, var(--border));
+}
+
+.flow-row span {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Connectors are drawn, not typed: a thin line with a small arrowhead */
+.flow-arrow {
+  position: relative;
+  flex: none;
+  display: inline-block;
+  width: 30px;
+  height: 2px;
+  margin: 0 9px;
+  border-radius: 1px;
+  background: var(--flow-line);
+  font-size: 0;
+}
+
+.flow-arrow::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--flow-line);
+}
+
+/* Placement in the column: ::: flow center / right */
+.flow-center .flow-row { justify-content: center; }
+.flow-right .flow-row { justify-content: flex-end; }
+
+/* ---------- Footer: backlinks and topic navigation ---------- */
+
+.backlinks {
+  margin-top: 36px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.backlinks span {
+  margin-right: 6px;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.backlinks a {
+  color: var(--primary);
+}
+
+.backlinks a:hover {
+  text-decoration: underline;
+}
+
+.topic-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-sans);
+}
+
+.topic-nav a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--primary);
+  font-size: 14px;
+}
+
+.topic-nav a:hover strong {
+  text-decoration: underline;
+}
+
+.topic-nav .prev {
+  grid-column: 1;
+}
+
+.topic-nav .next {
+  grid-column: 2;
+  text-align: right;
+}
+
+.topic-nav small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.empty-page,
+.not-found p {
+  color: var(--muted-foreground);
+}
+
+.not-found {
+  padding-top: 40px;
+}
+
+.not-found h1 {
+  margin-bottom: 14px;
+}
+
+/* ---------- Context rail ---------- */
+
+.toc p {
+  margin-bottom: 12px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.toc li a {
+  display: block;
+  padding: 5px 8px 5px 10px;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.toc li.lvl-3 a {
+  padding-left: 22px;
+  font-size: 12.5px;
+}
+
+.toc li a:hover {
+  color: var(--foreground);
+}
+
+.toc li a.active {
+  border-left-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.rail-hint {
+  margin-top: 30px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 2;
+}
+
+.rail-hint kbd {
+  display: inline-flex;
+  padding: 1px 5px;
+  font-size: 10.5px;
+}
+
+/* ---------- Revision mode: keep headings, blocks, tables, lists, images, highlights ---------- */
+
+.revision-banner {
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 14px;
+  padding: 7px 12px;
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+:root[data-mode="revision"] .revision-banner {
+  display: flex;
+}
+
+.recall-toggle,
+.banner-btn {
+  padding: 3px 10px;
+  border: 1px solid color-mix(in oklab, var(--primary) 40%, transparent);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recall-toggle:hover,
+.banner-btn:hover,
+.recall-toggle[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Recall: in revision mode, highlights are blanked until clicked. */
+:root[data-mode="revision"][data-recall="on"] .prose mark:not(.revealed) {
+  background: color-mix(in oklab, var(--primary) 32%, transparent);
+  color: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-mode="revision"][data-recall="on"] .prose mark {
+  cursor: pointer;
+}
+
+:root[data-mode="revision"] .prose > p:not(.keep),
+:root[data-mode="revision"] .prose > blockquote {
+  display: none;
+}
+
+:root[data-mode="revision"] .prose h2 {
+  margin-top: 1.1em;
+}
+
+/* Explanatory blocks with nothing to cram (no list, highlight, table or image) disappear. */
+:root[data-mode="revision"] :is(.block-mechanism, .block-note, .block-morphology):not(:has(:is(ul, ol, mark, table, figure))) {
+  display: none;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 780px) {
+  .article {
+    --prose-size: 16.5px;
+  }
+
+  .article h1 {
+    font-size: 32px;
+  }
+
+  .bookmark-control span {
+    display: none;
+  }
+
+  .info-strip li {
+    padding: 2px 10px;
+  }
+
+  .topic-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .topic-nav .next,
+  .topic-nav .prev {
+    grid-column: 1;
+    text-align: left;
+  }
+}
+
+/* Vertical flowchart: one column per chain, equal-width boxes, connectors centred between them */
+.flow-vertical {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 44px;
+}
+
+.flow-vertical.flow-center { justify-content: center; }
+.flow-vertical.flow-right { justify-content: flex-end; }
+
+.flow-vertical .flow-row {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: max-content;
+  min-width: 170px;
+  max-width: 100%;
+}
+
+.flow-vertical .flow-row + .flow-row {
+  margin-top: 0;
+}
+
+.flow-vertical .flow-row span {
+  display: block;
+}
+
+.flow-vertical .flow-arrow {
+  align-self: center;
+  width: 2px;
+  height: 22px;
+  margin: 5px 0 7px; /* a little air between the box, the line and the arrowhead */
+}
+
+.flow-vertical .flow-arrow::after {
+  top: auto;
+  right: auto;
+  bottom: -2px;
+  left: -4px;
+  border-top: 8px solid var(--flow-line);
+  border-right: 5px solid transparent;
+  border-bottom: 0;
+  border-left: 5px solid transparent;
+}
+
+/* a box plus the arrow after it: stays together when a chain wraps */
+.flow-unit {
+  display: inline-flex;
+  align-items: center;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.flow-vertical .flow-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  white-space: normal;
+}
+
+.head-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}

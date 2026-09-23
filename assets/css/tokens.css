@@ -1,0 +1,77 @@
+/* Design tokens: fonts, colors, shadows. Edit here to re-theme the whole site. */
+
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url("../fonts/dm-sans-var.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../fonts/newsreader-var.woff2") format("woff2");
+}
+
+:root {
+  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+
+  --background: oklch(97.5% 0.004 92);
+  --foreground: oklch(19% 0.015 255);
+  --paper: oklch(99.8% 0.001 90);
+  --paper-soft: oklch(96.5% 0.006 250);
+  --ink-soft: oklch(34% 0.018 255);
+  --muted-foreground: oklch(46% 0.02 255);
+  --border: oklch(88% 0.012 255);
+
+  --primary: oklch(47% 0.17 258);
+  --primary-foreground: oklch(99% 0 0);
+  --accent: oklch(93% 0.03 251);
+
+  --clinical: oklch(46% 0.105 164);
+  --clinical-soft: oklch(95% 0.025 164);
+  --destructive: oklch(52% 0.19 28);
+  --warning-soft: oklch(96% 0.025 28);
+
+  --ring: oklch(55% 0.16 258);
+  --shadow-dialog: 0 28px 80px oklch(15% 0.02 255 / 0.22);
+
+  /* Reading density: tune these to loosen or tighten every article. */
+  --prose-size: 17px;
+  --prose-leading: 1.6;
+  --para-gap: 0.6em;
+  --col: 760px;
+
+  --topbar-h: 68px;
+  --rail-w: 258px;
+  --context-w: 286px;
+  --radius: 5px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --background: oklch(16% 0.012 255);
+  --foreground: oklch(92% 0.008 90);
+  --paper: oklch(19% 0.014 255);
+  --paper-soft: oklch(22.5% 0.014 255);
+  --ink-soft: oklch(78% 0.012 90);
+  --muted-foreground: oklch(70% 0.016 255);
+  --border: oklch(32% 0.014 255);
+
+  --primary: oklch(72% 0.13 255);
+  --primary-foreground: oklch(16% 0.02 255);
+  --accent: oklch(28% 0.035 255);
+
+  --clinical: oklch(70% 0.105 164);
+  --clinical-soft: oklch(24% 0.025 164);
+  --destructive: oklch(68% 0.17 28);
+  --warning-soft: oklch(24% 0.03 28);
+
+  --ring: oklch(70% 0.12 255);
+  color-scheme: dark;
+}

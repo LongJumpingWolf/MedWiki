@@ -1,0 +1,14 @@
+{
+  "name": "medwiki",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A personal medical textbook: static site plus a tiny local save server.",
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node tests/smoke.mjs",
+    "bump": "node tools/bump.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,100 @@
+/* Hover preview card for wiki links. */
+
+.page-preview {
+  position: fixed;
+  z-index: 80;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  box-shadow: 0 14px 40px color-mix(in oklab, var(--foreground) 22%, transparent);
+  font-family: var(--font-display);
+  animation: preview-in 0.12s ease-out;
+}
+
+.page-preview[hidden] {
+  display: none;
+}
+
+.pp-image {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--border);
+}
+
+.pp-body {
+  padding: 14px 18px 4px;
+}
+
+.pp-title {
+  margin-bottom: 4px;
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.pp-text,
+.pp-missing {
+  position: relative;
+  max-height: 8.4em;
+  overflow: hidden;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.pp-text::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.6em;
+  background: linear-gradient(transparent, var(--paper));
+}
+
+.pp-text strong {
+  color: var(--foreground);
+}
+
+.pp-text mark {
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: inherit;
+}
+
+.pp-missing {
+  color: var(--destructive);
+}
+
+.pp-foot {
+  padding: 8px 18px 12px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+@keyframes preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (hover: none) {
+  .page-preview {
+    display: none;
+  }
+}
+
+@media print {
+  .page-preview {
+    display: none;
+  }
+}

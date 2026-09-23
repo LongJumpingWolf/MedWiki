@@ -1,0 +1,536 @@
+/* Visual editor: mode switch, toolbar, editing surface, menus, link popover, table and image bars. */
+
+/* ---------- Mode switch ---------- */
+
+.ve-modebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-family: var(--font-sans);
+}
+
+.ve-modebar[hidden],
+.pane-visual[hidden],
+.pane-source[hidden] {
+  display: none;
+}
+
+.ve-modebar small {
+  color: var(--muted-foreground);
+  font-size: 12.5px;
+}
+
+.ve-mode {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper-soft);
+}
+
+.ve-mode button {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ve-mode button[aria-pressed="true"] {
+  background: var(--paper);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 18%, transparent);
+  color: var(--primary);
+}
+
+/* ---------- Toolbar ---------- */
+
+.ve-toolbar {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  font-family: var(--font-sans);
+}
+
+.ve-toolbar[hidden] {
+  display: none;
+}
+
+.ve-toolbar i {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 5px;
+  background: var(--border);
+}
+
+.ve-toolbar button {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 9px;
+  border-radius: 5px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ve-toolbar button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.ve-toolbar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ve-toolbar button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.ve-toolbar select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ve-toolbar select:hover:not(:disabled) {
+  border-color: var(--border);
+}
+
+.ve-toolbar select:disabled {
+  opacity: 0.45;
+}
+
+.ve-toolbar .ve-insert {
+  margin-left: auto;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.ve-toolbar .ve-insert:hover:not(:disabled) {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  filter: brightness(1.08);
+}
+
+/* ---------- Surface: looks exactly like the published article ---------- */
+
+.ve-surface {
+  position: relative;
+  min-height: 55vh;
+  padding: 2px 2px 90px;
+  outline: none;
+  caret-color: var(--primary);
+}
+
+.ve-surface[hidden] {
+  display: none;
+}
+
+.ve-surface.is-empty::before {
+  content: "Start writing. Type ~ for tables, images, quotes and study blocks.";
+  position: absolute;
+  top: 2px;
+  color: var(--muted-foreground);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.ve-surface ::selection {
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
+}
+
+.ve-surface img {
+  cursor: default;
+  -webkit-user-drag: none;
+  animation: none;
+}
+
+.ve-surface figure {
+  position: relative;
+}
+
+.ve-surface figure.is-selected img {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ve-surface [data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.ve-surface figcaption {
+  min-height: 1.4em;
+  outline: none;
+}
+
+.ve-surface a.wikilink {
+  cursor: text;
+}
+
+.ve-surface td,
+.ve-surface th {
+  min-width: 64px;
+  height: 2em;
+}
+
+.ve-surface td:hover,
+.ve-surface th:hover {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+/* Study blocks while editing */
+
+.ve-surface .block-head {
+  user-select: none;
+}
+
+.ve-surface .block-label {
+  cursor: pointer;
+}
+
+.ve-surface .block-label:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.ve-surface .block-title {
+  min-width: 8ch;
+  outline: none;
+  user-select: text;
+}
+
+.ve-surface .block-title:empty {
+  min-width: 14ch;
+}
+
+.block-ctl {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.block:hover > .block-head .block-ctl,
+.flow-src:hover > .block-head .block-ctl,
+.block:focus-within > .block-head .block-ctl {
+  opacity: 1;
+}
+
+.block-ctl button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.block-ctl button:hover {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  color: var(--primary);
+}
+
+.block-ctl button[data-act="del"]:hover {
+  color: var(--destructive);
+}
+
+.flow-src {
+  margin: 0.9em 0;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.flow-src .block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px dashed var(--border);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.flow-src .block-label {
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flow-src .block-hint {
+  color: var(--muted-foreground);
+}
+
+.flow-lines {
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+.flow-lines > * {
+  margin: 0;
+  padding: 2px 0;
+}
+
+/* ---------- Menus ---------- */
+
+.ve-menu {
+  position: fixed;
+  z-index: 110;
+  width: 290px;
+  max-height: min(380px, calc(100vh - 100px));
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-dialog);
+  font-family: var(--font-sans);
+}
+
+.ve-menu-group {
+  padding: 8px 10px 3px;
+  color: var(--muted-foreground);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ve-menu-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 5px;
+  color: var(--foreground);
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.ve-menu-item strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ve-menu-item small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ve-menu-item:hover,
+.ve-menu-item.is-on {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+/* ---------- Link popover ---------- */
+
+.ve-pop {
+  position: fixed;
+  z-index: 112;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(340px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-dialog);
+  font-family: var(--font-sans);
+}
+
+.ve-pop input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.ve-pop input:focus {
+  outline: 0;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.ve-pop-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ve-pop-empty {
+  padding: 6px 4px;
+  color: var(--muted-foreground);
+  font-size: 12.5px;
+}
+
+.ve-pop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}
+
+.ve-pop-foot button {
+  color: var(--destructive);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Table and image bar ---------- */
+
+.ve-ctx {
+  position: fixed;
+  z-index: 94;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100vw - 24px);
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-dialog);
+  font-family: var(--font-sans);
+}
+
+.ve-ctx[hidden] {
+  display: none;
+}
+
+.ve-ctx button {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 5px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ve-ctx button:hover {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.ve-ctx button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.ve-ctx .danger:hover {
+  background: var(--warning-soft);
+  color: var(--destructive);
+}
+
+.ve-grp {
+  display: inline-flex;
+  gap: 1px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.ve-ctx input[type="range"] {
+  width: 96px;
+  accent-color: var(--primary);
+}
+
+@media (max-width: 640px) {
+  .ve-modebar small { display: none; }
+  .ve-toolbar .ve-insert { margin-left: 0; }
+}
+
+/* quieter placeholders and a smaller lead-in gap */
+.ve-surface .block-title:empty::before {
+  opacity: 0;
+}
+
+.ve-surface .block:hover .block-title:empty::before,
+.ve-surface .block-title:focus:empty::before {
+  opacity: 0.6;
+}
+
+.ve-surface > p:first-child:has(> br:only-child) {
+  margin: 0;
+  line-height: 0.6;
+}
+
+.ve-toolbar button {
+  padding: 0 7px;
+}
+
+/* Revision / recall are read-time study aids: never while editing */
+html[data-editing] .revision-toggle {
+  display: none;
+}
+
+/* Flowchart direction switch and live preview */
+.flow-dir {
+  display: inline-flex;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.flow-dir button {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.flow-dir button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.flow-preview {
+  padding: 10px 12px 6px;
+  border-top: 1px dashed var(--border);
+  user-select: none;
+}
+
+.flow-preview .flow {
+  margin: 0;
+}

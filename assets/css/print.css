@@ -1,0 +1,46 @@
+/* Ctrl+P on a normal page: article only, no chrome. For the journal layout use print.html (press P). */
+
+@media print {
+  :root {
+    --paper: #fff;
+    --background: #fff;
+    --foreground: #000;
+    --ink-soft: #222;
+  }
+
+  .topbar,
+  .library-rail,
+  .context-rail,
+  .mobile-scrim,
+  .fab,
+  .edit-dock,
+  .head-actions,
+  .revision-banner,
+  .topic-nav,
+  .skip-link,
+  .palette-overlay,
+  .overlay,
+  .toast {
+    display: none !important;
+  }
+
+  .page-grid {
+    display: block;
+  }
+
+  .article-main {
+    padding: 0;
+  }
+
+  .article {
+    width: 100%;
+    font-size: 11pt;
+  }
+
+  .article h2,
+  .block,
+  .table-wrap,
+  figure {
+    break-inside: avoid;
+  }
+}
