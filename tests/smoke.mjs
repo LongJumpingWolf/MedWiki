@@ -817,6 +817,21 @@ await test("quick bites: Enter moves to the next field, and a picture (own, or t
   ok(!(await ev("MedWiki.bites.cardHtml({ id:'x', term:'T', aliases:[], means:'m', tags:[] }, { preview: true })")).includes("bc-image"), "no picture, no image");
 });
 
+await test("quick bites: linking inside bold text in a nested list keeps the link, and Alt+B inside a multi-word term links all of it", async () => {
+  await ev("MedWiki.bites.save({ term: 'Flocked swabs', means: 'Nylon-fibre tip.', tags: [] })");
+  await go(BASE + "article.html?a=digoxin");
+  await ev("document.querySelector('.fab').click()");
+  await waitFor("!!document.querySelector('.ve-surface')");
+  await ev(`(()=>{ const s=document.querySelector('.ve-surface'); s.focus(); const ul=document.createElement('ul'); ul.innerHTML='<li>Swabs<ul><li><strong>Flocked swabs preferred</strong></li></ul></li>'; s.appendChild(ul);
+    const t=ul.querySelector('strong').firstChild; const r=document.createRange(); r.setStart(t,3); r.collapse(true); const g=getSelection(); g.removeAllRanges(); g.addRange(r);
+    s.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',altKey:true,bubbles:true,cancelable:true})); })()`);
+  ok(await waitFor("!!document.querySelector('.ve-surface strong .bite[data-bite=\"Flocked swabs\"]')", 1500), "the link was lost inside bold list text");
+  const md = await ev("MedWiki.md.fromDom(document.querySelector('.ve-surface'))");
+  ok(md.includes("**{{Flocked swabs}} preferred**"), "should be saved as a bite link: " + md.slice(-120));
+  await ev("document.querySelector('[data-cancel]').click()");
+  await ev("MedWiki.bites.remove('flocked-swabs')");
+});
+
 await test("quick bites page lists them, palette finds them, and deleting one turns its links red", async () => {
   await go(BASE + "bites.html");
   ok(await waitFor("document.querySelectorAll('.bite-tile').length >= 2", 3000), "tiles missing");

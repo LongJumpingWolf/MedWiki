@@ -633,15 +633,26 @@
     /* the link text for a bite; what you typed is kept as the label when it differs from the term */
     function biteHtml(b, typed) {
       var label = (typed || "").replace(/[{}|]/g, "").trim();
-      return MW.md.inline("{{" + b.term + (label && label !== b.term ? "|" + label : "") + "}}") + "&#8203;";
+      return MW.md.inline("{{" + b.term + (label && label !== b.term ? "|" + label : "") + "}}");
     }
 
+    /* Inserted as a node, not with insertHTML: inside bold text or list items the browser drops an unstyled <span>. */
     function putBite(range, b, typed) {
       surface.focus({ preventScroll: true });
+      var holder = document.createElement("div");
+      holder.innerHTML = biteHtml(b, typed);
+      var node = holder.firstChild;
+      range.deleteContents();
+      range.insertNode(node);
+      var gap = document.createTextNode(String.fromCharCode(8203)); /* keeps typing outside the link */
+      node.after(gap);
+      var r = document.createRange();
+      r.setStart(gap, 1);
+      r.collapse(true);
       var s = window.getSelection();
       s.removeAllRanges();
-      s.addRange(range);
-      document.execCommand("insertHTML", false, biteHtml(b, typed));
+      s.addRange(r);
+      lastRange = r.cloneRange();
       MW.bites.refreshDom(surface);
       changed(true);
     }
@@ -673,6 +684,25 @@
         var n = range.startContainer;
         if (n.nodeType !== 3 || within(n, "pre")) return MW.toast("Put the cursor in a word, or select the term, then press Alt+B.");
         var text = n.nodeValue;
+        /* the cursor inside a known term, even a multi-word one ("Flocked swabs"): take the longest match around it */
+        var lower = text.toLowerCase();
+        var best = null;
+        MW.bites.list().forEach(function (bt) {
+          [bt.term].concat(bt.aliases || []).forEach(function (name) {
+            var nm = name.toLowerCase();
+            var from = lower.indexOf(nm);
+            while (from !== -1) {
+              if (from <= range.startOffset && range.startOffset <= from + nm.length && (!best || nm.length > best.len)) best = { at: from, len: nm.length };
+              from = lower.indexOf(nm, from + 1);
+            }
+          });
+        });
+        if (best) {
+          range.setStart(n, best.at);
+          range.setEnd(n, best.at + best.len);
+          var known = MW.bites.resolve(range.toString());
+          if (known) return putBite(range, known, range.toString());
+        }
         var word = function (c) { return /[\p{L}\p{N}'’-]/u.test(c); };
         var a = range.startOffset;
         var z = a;
