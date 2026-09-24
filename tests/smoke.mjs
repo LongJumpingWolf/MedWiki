@@ -782,7 +782,10 @@ await test("quick bites: {{ in the editor picks a bite or writes a new one on th
   ok(await waitFor("!!document.querySelector('.bite-dialog')", 1500), "the quick bite window did not open");
   ok(await ev("document.querySelector('.bite-dialog [name=term]').value === 'Afterload'"), "term should be prefilled");
   ok(await ev("document.querySelector('.bite-dialog [data-save]').disabled === true"), "saving should wait for a meaning");
-  await ev(`(()=>{ const f=document.querySelector('.bite-dialog'); const set=(n,v)=>{ f.elements[n].value=v; f.elements[n].dispatchEvent(new Event('input',{bubbles:true})); }; set('means','Resistance the ventricle pumps against.'); set('key','Raised by hypertension'); set('tags','cvs, physiology'); })()`);
+  ok(await ev("!!document.querySelector('.bite-dialog .bd-tools .ve-toolbar') && !!document.querySelector('.bite-dialog .bd-surface[contenteditable=true]')"), "the description should be the full editor");
+  await ev("document.querySelector('.bite-dialog .bd-surface').focus()");
+  await text("Resistance the ventricle pumps against, however long this needs to run. ".repeat(6));
+  await ev(`(()=>{ const f=document.querySelector('.bite-dialog'); const set=(n,v)=>{ f.elements[n].value=v; f.elements[n].dispatchEvent(new Event('input',{bubbles:true})); }; set('key','Raised by hypertension'); set('tags','cvs, physiology'); })()`);
   ok(await ev("!document.querySelector('.bite-dialog [data-save]').disabled && document.querySelector('.bite-dialog .bite-card-static').innerText.includes('Raised by hypertension')"), "live preview / save state wrong");
   await ev("document.querySelector('.bite-dialog').requestSubmit()");
   ok(await waitFor(`!!${S}.querySelector('.bite[data-bite="Afterload"]')`, 3000), "saving should insert the link");
@@ -804,9 +807,9 @@ await test("quick bites: {{ in the editor picks a bite or writes a new one on th
 await test("quick bites: Enter moves to the next field, and a picture (own, or the linked article's first) shows on the card", async () => {
   await go(BASE + "article.html?a=digoxin");
   await ev("MedWiki.bites.open({ term: 'Enter test' })");
-  await ev("document.querySelector('.bite-dialog [name=means]').focus()");
+  await ev("document.querySelector('.bite-dialog [name=term]').focus()");
   await key("Enter");
-  ok(await ev("document.activeElement.name === 'key'"), "Enter should move to the next field, not submit");
+  ok(await ev("document.activeElement.name === 'aliases'"), "Enter should move to the next field, not submit");
   ok(await ev("!!document.querySelector('.bite-dialog') && !!document.querySelector('.bite-dialog [data-pick]')"), "dialog should stay open with a picture control");
   await ev("document.querySelector('.bite-dialog [data-cancel]').click()");
   const own = await ev("MedWiki.bites.cardHtml({ id:'x', term:'T', aliases:[], means:'m', image:'https://example.com/a.png', tags:[] }, { preview: true })");

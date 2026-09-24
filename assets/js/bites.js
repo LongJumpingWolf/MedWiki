@@ -7,7 +7,7 @@
  *
  *   term       what it is called                     (required)
  *   aliases    abbreviations and other names         (each one resolves too)
- *   means      what it is, one or two sentences      (required, short)
+ *   means      what it is, written in the full editor (required; any length, images, lists, tables)
  *   key        the one number, cut-off or rule
  *   hook       a mnemonic or picture
  *   image      one picture (img:<key> or a web address); else the first image of the full article
@@ -20,7 +20,7 @@
 (function () {
   var MW = window.MedWiki;
   var KEY = "medwiki:bites";
-  var LIMIT = { term: 60, means: 220, key: 160, hook: 120 };
+  var LIMIT = { term: 60 };
   var BAD_TERM = /[{}|\[\]\\#]/;
   var cache = null;
   var index = null;
@@ -76,16 +76,18 @@
   }
 
   /* The bite's own picture, else the first image in its full article. */
-  function pictureOf(b) {
+  function pictureOf(b, meansHtml) {
     var own = imgSrc(b.image);
     if (own) return own;
+    var inMeans = /<img [^>]*src="([^"]+)"/.exec(meansHtml || "");
+    if (inMeans && inMeans[1]) return MW.unesc(inMeans[1]);
     var page = b.more && MW.resolve(b.more);
     var m = page && /!\[[^\]]*\]\(([^)\s]+)\)/.exec(page.body);
     return m ? imgSrc(m[1]) : "";
   }
 
   function shorten(s, n) {
-    s = String(s || "").replace(/\*\*|==/g, "");
+    s = MW.md.plain(String(s || ""));
     return s.length > n ? s.slice(0, n).replace(/\s+\S*$/, "") + "…" : s;
   }
 
@@ -234,19 +236,29 @@
     },
 
     /* The hover card body. opts.preview leaves out the footer (used inside the editor window). */
+    /* The cover picture: its own, else the first in the description, else in the full article. */
+    cover: function (b) { return pictureOf(b, MW.md.render(b.means || "").html); },
+
+    /* The whole description, rendered like an article. */
+    bodyHtml: function (b) { return MW.md.render(b.means || "").html; },
+
     cardHtml: function (b, opts) {
       var more = b.more && MW.resolve(b.more);
       var foot = "";
+      var full = MW.md.render(b.means || "").html;
+      /* the card shows the text; the first picture goes on top, other figures and nested bite links are left out */
+      var text = full.replace(/<figure[\s\S]*?<\/figure>/g, "").replace(/<span class="bite[^"]*"[^>]*>(.*?)<\/span>/g, "$1").replace(/<a class="h-anchor"[^>]*>.*?<\/a>/g, "");
       if (!opts || !opts.preview) {
         foot = '<div class="bc-foot"><span class="bc-tags">' + (b.tags || []).map(function (t) { return "#" + MW.esc(t); }).join(" ") + '</span><span class="bc-acts">' +
-          (more ? '<a href="' + MW.pageUrl(more.id) + '">Read more →</a>' : "") +
+          '<a class="bc-open" href="bites.html?b=' + encodeURIComponent(b.id) + '" target="_blank" rel="noopener">Open full bite ↗</a>' +
+          (more ? '<a href="' + MW.pageUrl(more.id) + '" target="_blank" rel="noopener">Article →</a>' : "") +
           '<button type="button" data-bite-edit="' + MW.esc(b.id) + '">Edit</button></span></div>';
       }
-      var pic = pictureOf(b);
+      var pic = pictureOf(b, full);
       return (pic ? '<img class="bc-image" src="' + MW.esc(pic) + '" alt="">' : "") +
         '<div class="bc-head"><span class="bc-term">' + MW.esc(b.term) + "</span>" +
         ((b.aliases || []).length ? '<span class="bc-aka">also ' + MW.esc(b.aliases.join(", ")) + "</span>" : "") + "</div>" +
-        '<p class="bc-means">' + (fmt(b.means || "") || '<span class="bc-none">What it means…</span>') + "</p>" +
+        '<div class="bc-body">' + (text || '<p class="bc-none">What it means…</p>') + "</div>" +
         (b.key ? '<p class="bc-row"><span class="bc-tag">Key</span><span>' + fmt(b.key) + "</span></p>" : "") +
         (b.hook ? '<p class="bc-row bc-hook"><span class="bc-tag">Hook</span><span>' + fmt(b.hook) + "</span></p>" : "") + foot;
     },
@@ -268,6 +280,7 @@
     card.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
     card.addEventListener("mouseleave", scheduleHide);
     card.addEventListener("click", function (e) {
+      if (card.getAttribute("data-id") && !e.target.closest("a, button")) { window.open("bites.html?b=" + encodeURIComponent(card.getAttribute("data-id")), "_blank", "noopener"); return; }
       var edit = e.target.closest("[data-bite-edit]");
       var make = e.target.closest("[data-bite-create]");
       if (edit) { hide(); bites.open({ id: edit.getAttribute("data-bite-edit"), onSaved: after, onDeleted: after }); }
@@ -303,7 +316,11 @@
     ensureCard();
     current = el;
     card.innerHTML = contentFor(el);
+    var found = bites.resolve(el.getAttribute("data-bite") || "");
+    if (found) card.setAttribute("data-id", found.id); else card.removeAttribute("data-id");
     card.hidden = false;
+    var body = card.querySelector(".bc-body");
+    if (body) body.classList.toggle("is-cut", body.scrollHeight > body.clientHeight + 4);
     place(el, x || 0, y || 0);
   }
 
@@ -369,15 +386,15 @@
       '<div class="dialog-row"><label><span>Term</span><input name="term" required maxlength="' + LIMIT.term + '" autocomplete="off" spellcheck="false"></label>' +
       '<label><span>Also called <em>(comma separated)</em></span><input name="aliases" autocomplete="off" spellcheck="false" placeholder="abbreviation, other name"></label></div>' +
       '<div class="bd-warn" role="status" aria-live="polite" hidden></div>' +
-      '<label><span>What it means <em class="bd-count" data-for="means"></em></span>' +
-      '<textarea name="means" rows="3" required maxlength="' + LIMIT.means + '" placeholder="One or two plain sentences: what it is and why it matters." spellcheck="false"></textarea></label>' +
-      '<div class="dialog-row"><label><span>Key fact <em class="bd-count" data-for="key"></em></span><input name="key" maxlength="' + LIMIT.key + '" autocomplete="off" placeholder="The number, cut-off or rule to remember"></label>' +
-      '<label><span>Memory hook <em class="bd-count" data-for="hook"></em></span><input name="hook" maxlength="' + LIMIT.hook + '" autocomplete="off" placeholder="Mnemonic or picture"></label></div>' +
+      '<div class="bd-means"><span class="bd-lab">What it means <em>(write it like an article: lists, images, tables, links all work)</em></span>' +
+      '<div class="bd-tools"></div><div class="prose ve-surface bd-surface"></div></div>' +
+      '<div class="dialog-row"><label><span>Key fact</span><input name="key" autocomplete="off" placeholder="The number, cut-off or rule to remember"></label>' +
+      '<label><span>Memory hook</span><input name="hook" autocomplete="off" placeholder="Mnemonic or picture"></label></div>' +
       '<div class="dialog-row"><label><span>Full article <em>(optional)</em></span><input name="more" list="bd-articles" autocomplete="off" placeholder="Title of the article"></label>' +
       '<label><span>Tags <em>(comma separated)</em></span><input name="tags" autocomplete="off" placeholder="drug, lab, sign"></label></div>' +
       '<datalist id="bd-articles">' + articles + "</datalist>" +
       '<div class="bd-pic"><span class="bd-pic-box" data-pic></span><span class="bd-pic-text"><strong>Picture</strong> <em>(optional)</em>' +
-      '<small>Choose, paste or drop one here. Without one, the card shows the first image of the full article.</small>' +
+      '<small>A cover picture for the card. Without one, the card uses the first image in the description, then in the full article.</small>' +
       '<span class="bd-pic-btns"><button type="button" class="btn" data-pick>Choose picture…</button><button type="button" class="btn" data-unpic hidden>Remove</button></span></span></div>' +
       '<div class="bd-tagpick" aria-label="Existing tags"></div>' +
       '<div class="bd-preview"><p class="bd-label">Hover preview</p><div class="bite-card bite-card-static"></div></div>' +
@@ -395,7 +412,10 @@
     var save = wrap.querySelector("[data-save]");
     el.term.value = draft.term;
     el.aliases.value = (draft.aliases || []).join(", ");
-    el.means.value = draft.means;
+    var surface = wrap.querySelector(".bd-surface");
+    var ve = MW.visual.attach(surface, { toolbarHost: wrap.querySelector(".bd-tools"), onChange: function () { check(); } });
+    ve.load(draft.means || "");
+    function meansMd() { return ve.getMarkdown().trim(); }
     el.key.value = draft.key || "";
     el.hook.value = draft.hook || "";
     el.more.value = draft.more || "";
@@ -406,7 +426,7 @@
         id: editing ? editing.id : "",
         term: el.term.value.trim(),
         aliases: csv(el.aliases.value),
-        means: el.means.value.trim(),
+        means: meansMd(),
         key: el.key.value.trim(),
         hook: el.hook.value.trim(),
         more: el.more.value.trim(),
@@ -448,12 +468,6 @@
       warn.innerHTML = msgs.join("");
       warn.hidden = !msgs.length;
       save.disabled = blocked;
-      ["means", "key", "hook"].forEach(function (k) {
-        var n = wrap.querySelector('[data-for="' + k + '"]');
-        var len = el[k].value.length;
-        n.textContent = len + "/" + LIMIT[k];
-        n.classList.toggle("near", len > LIMIT[k] * 0.9);
-      });
       preview.innerHTML = bites.cardHtml({ id: "", term: d.term || "Term", aliases: d.aliases, means: d.means, key: d.key, hook: d.hook, more: d.more, image: d.image, tags: d.tags }, { preview: true });
       var box = wrap.querySelector("[data-pic]");
       var src = imgSrc(image);
@@ -475,11 +489,13 @@
     wrap.querySelector("[data-pick]").addEventListener("click", function () { picker.click(); });
     wrap.querySelector("[data-unpic]").addEventListener("click", function () { image = ""; check(); });
     wrap.addEventListener("paste", function (e) {
+      if (e.target.closest(".bd-surface")) return; /* pictures pasted into the description belong to the description */
       var f = [].slice.call((e.clipboardData && e.clipboardData.files) || []).filter(function (x) { return /^image\//.test(x.type); })[0];
       if (f) { e.preventDefault(); addFile(f); }
     });
     wrap.addEventListener("dragover", function (e) { e.preventDefault(); });
     wrap.addEventListener("drop", function (e) {
+      if (e.target.closest(".bd-surface")) return;
       e.preventDefault();
       addFile([].slice.call((e.dataTransfer && e.dataTransfer.files) || [])[0]);
     });
@@ -497,6 +513,7 @@
     });
 
     function close(keepFocus) {
+      ve.destroy();
       wrap.remove();
       if (keepFocus !== true && lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
     }
@@ -508,7 +525,7 @@
       else if (e.key === "Enter" && !e.shiftKey && /^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "file") {
         /* Enter moves to the next field; the last one moves to Save (Ctrl+Enter saves from anywhere) */
         e.preventDefault();
-        var order = [el.term, el.aliases, el.means, el.key, el.hook, el.more, el.tags];
+        var order = [el.term, el.aliases, surface, el.key, el.hook, el.more, el.tags];
         var at = order.indexOf(e.target);
         (order[at + 1] || save).focus();
       }
@@ -532,13 +549,13 @@
       save.disabled = true;
       bites.save(read()).then(function (r) {
         close();
-        MW.toast(r.where === "file" ? "Quick bite saved to content/." : r.where === "browser" ? "Quick bite saved in this browser only. Run npm start to write it to your files." : "Could not save the quick bite.");
+        MW.toast(r.where === "file" ? "Quick bite saved to content/." : r.where === "browser" ? "Quick bite saved (in this browser; run npm start to keep it in your files too)." : "Could not save the quick bite.");
         if (r.where !== "failed" && opts.onSaved) opts.onSaved(r.bite);
       });
     });
 
     check();
-    var first = draft.term ? el.means : el.term;
+    var first = draft.term ? surface : el.term;
     first.focus();
     if (first === el.term) first.select();
   }

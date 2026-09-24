@@ -59,8 +59,37 @@
 
   function repaint() { paintTags(); paintList(); }
 
+  /* One bite in full: ?b=<id>. This is where the hover card's "Open full bite" leads. */
+  function detail(id) {
+    var b = MW.bites.get(id);
+    if (!b) {
+      root.innerHTML = '<header class="home-hero"><p class="kicker">Quick bite</p><h1>Not found</h1><p>There is no quick bite with that address. <a href="bites.html">See all quick bites</a>.</p></header>';
+      return;
+    }
+    document.title = b.term + " — Quick bites — MedWiki";
+    var more = b.more && MW.resolve(b.more);
+    var pic = MW.bites.cover(b);
+    root.innerHTML =
+      '<header class="home-hero"><p class="kicker"><a href="bites.html">Quick bites</a></p><h1>' + MW.esc(b.term) + "</h1>" +
+      ((b.aliases || []).length ? "<p>Also called " + MW.esc(b.aliases.join(", ")) + "</p>" : "") + "</header>" +
+      '<div class="bite-full">' + (pic ? '<img class="bf-cover" src="' + MW.esc(pic) + '" alt="">' : "") +
+      '<div class="prose">' + MW.bites.bodyHtml(b) + "</div>" +
+      (b.key ? '<p class="bc-row"><span class="bc-tag">Key</span><span>' + MW.bites.fmt(b.key) + "</span></p>" : "") +
+      (b.hook ? '<p class="bc-row bc-hook"><span class="bc-tag">Hook</span><span>' + MW.bites.fmt(b.hook) + "</span></p>" : "") +
+      usageHtml(b) +
+      '<div class="bt-foot"><span class="bc-tags">' + (b.tags || []).map(function (t) { return '<a href="bites.html">#' + MW.esc(t) + "</a>"; }).join(" ") + "</span>" +
+      '<span class="bc-acts">' + (more ? '<a href="' + MW.pageUrl(more.id) + '">Read the article →</a>' : "") +
+      '<button type="button" data-edit="' + MW.esc(b.id) + '">Edit</button></span></div></div>';
+    root.onclick = function (e) {
+      var ed = e.target.closest("[data-edit]");
+      if (ed) MW.bites.open({ id: id, onSaved: function () { detail(id); }, onDeleted: function () { location.href = "bites.html"; } });
+    };
+  }
+
   function render() {
     root = document.getElementById("bites-root");
+    var one = new URLSearchParams(location.search).get("b");
+    if (one) return detail(one);
     root.innerHTML =
       '<header class="home-hero"><p class="kicker">Glossary</p><h1>Quick bites</h1>' +
       "<p>Short definitions for words you keep meeting. Link one anywhere with <code>{{term}}</code>, or select a word while writing and press <code>Alt+B</code>. Hover it to get the definition without leaving the page.</p>" +

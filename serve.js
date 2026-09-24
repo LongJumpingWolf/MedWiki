@@ -117,7 +117,7 @@ async function api(req, res, url) {
     }
     if (url === "/api/bites") {
       const str = (v, max) => typeof v === "string" && v.length <= max;
-      const ok = Array.isArray(b.bites) && b.bites.length <= 5000 && b.bites.every((x) => x && validId(x.id) && str(x.term, 80) && x.term.trim() && str(x.means, 600) && str(x.key || "", 400) && str(x.hook || "", 300) && str(x.more || "", 200) && str(x.image || "", 2000) &&
+      const ok = Array.isArray(b.bites) && b.bites.length <= 5000 && b.bites.every((x) => x && validId(x.id) && str(x.term, 80) && x.term.trim() && str(x.means, 60000) && str(x.key || "", 5000) && str(x.hook || "", 5000) && str(x.more || "", 200) && str(x.image || "", 2000) &&
         Array.isArray(x.aliases) && x.aliases.every((a) => str(a, 80)) && Array.isArray(x.tags) && x.tags.every((t) => str(t, 60)));
       if (!ok) return reply(res, 400, { error: "Bad payload" });
       writeAtomic(path.join(CONTENT, "_bites.js"), "MedWiki.bitesData = " + JSON.stringify(b.bites, null, 2) + ";\n");
