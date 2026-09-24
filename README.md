@@ -137,3 +137,7 @@ The site is fully static, so there is nothing to build. In Vercel: **Add New →
 ## Subjects and chapters
 
 Right-click a subject or chapter in the library tree to add a chapter, rename, or delete it (type `delete` to confirm). Deleting one that holds articles asks whether to move them elsewhere or delete them too. The **+** next to "Library" adds a subject. Once you change the tree it is saved in `content/_structure.js` (or kept in this browser without the server) and replaces the defaults in `assets/js/data.js`.
+
+## Writing and publishing
+
+Write with `npm start` (http://localhost:5173): every save goes straight into `content/`. Then run `npm run publish` to commit and push, and Vercel redeploys. Editing through Live Server (port 5500) or a hosted copy keeps articles only in that browser, so use **Export backup** if you do.

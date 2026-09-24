@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node serve.js",
     "test": "node tests/smoke.mjs",
-    "bump": "node tools/bump.mjs"
+    "bump": "node tools/bump.mjs",
+    "publish": "git add -A && git commit -m \"Update notes\" && git push"
   },
   "engines": {
     "node": ">=22"
