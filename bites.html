@@ -1,26 +1,35 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Print view — MedWiki</title>
+    <title>Quick bites — MedWiki</title>
+    <meta name="description" content="One-glance definitions you can hover from any article." />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#2a5590" />
+    <script src="assets/js/theme-init.js?v=mug36dsc"></script>
     <link rel="stylesheet" href="assets/css/tokens.css?v=mug36dsc" />
     <link rel="stylesheet" href="assets/css/base.css?v=mug36dsc" />
-    <link rel="stylesheet" href="assets/css/article.css?v=mug36dsc" />
+    <link rel="stylesheet" href="assets/css/layout.css?v=mug36dsc" />
+    <link rel="stylesheet" href="assets/css/home.css?v=mug36dsc" />
     <link rel="stylesheet" href="assets/css/edit.css?v=mug36dsc" />
     <link rel="stylesheet" href="assets/css/images.css?v=mug36dsc" />
     <link rel="stylesheet" href="assets/css/bites.css?v=mug36dsc" />
-    <link rel="stylesheet" href="assets/css/journal.css?v=mug36dsc" />
+    <link rel="stylesheet" href="assets/css/print.css?v=mug36dsc" />
   </head>
-  <body data-page="print">
-    <header class="jr-toolbar" id="toolbar"></header>
-    <main class="jr-desk"><div class="jr-sheet" id="sheet"></div></main>
-    <noscript><p style="padding: 24px">MedWiki needs JavaScript to build the print view.</p></noscript>
+  <body data-page="bites">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="medwiki-shell">
+      <header data-topbar></header>
+      <div class="page-grid no-context">
+        <aside data-rail></aside>
+        <main class="article-main" id="main"><div class="home" id="bites-root"></div></main>
+      </div>
+    </div>
+    <noscript><p style="padding: 24px">MedWiki needs JavaScript to render articles.</p></noscript>
 
     <script src="assets/js/icons.js?v=mug36dsc"></script>
     <script src="assets/js/data.js?v=mug36dsc"></script>
@@ -33,6 +42,6 @@
     <script src="assets/js/palette.js?v=mug36dsc"></script>
     <script src="assets/js/bites.js?v=mug36dsc"></script>
     <script src="assets/js/chrome.js?v=mug36dsc"></script>
-    <script src="assets/js/print.js?v=mug36dsc"></script>
+    <script src="assets/js/bites-page.js?v=mug36dsc"></script>
   </body>
 </html>

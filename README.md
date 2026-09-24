@@ -18,8 +18,10 @@ index.html            home: welcome, continue editing, recently written (also ?t
 print.html            journal-style print view for one or many articles (?a=id1,id2)
 article.html          reader and editor for every article (?a=<id>)
 pyq.html              PYQ bank: every ::: pyq block, filterable
+bites.html            Quick bites: every one-glance definition (glossary), searchable by tag
 content/              one file per article, in Markdown  ← your textbook
   _chapters.js        chapters you created in the editor
+  _bites.js           quick bites (written by the server)
 assets/css/           tokens · base · layout · article · edit · preview · home · print · journal
 assets/js/            data (structure + manifest) · core · markdown · search · palette · chrome ·
                       article · editor · preview · home · pyq · print · dialogs
@@ -76,6 +78,17 @@ Paragraph, **bold**, *italic*, lists, tables, images.
 - **Study blocks** (`::: name`) are yours to define: press Ctrl+K → **Manage block types…** (or use the last entry of any block menu) to add, rename, recolour or delete them. `::: pyq` blocks (title them `::: pyq LAQ · 2024`) feed the PYQ bank. `::: flow` with `A -> B -> C` makes a horizontal flowchart; `::: flow vertical` stacks the steps top to bottom; add `center` or `right` to place the chart in the column (`::: flow vertical center`). Each line is one chain, so several lines give several chains. In the visual editor the Insert menu has both, and a Horizontal | Vertical switch sits on the chart.
 - In a table cell, write a piped link as `[[Page\|label]]`.
 - Links to pages that don't exist show red; click to create. Each page ends with "Referenced by …" (backlinks), and hovering any link shows a preview card.
+
+## Quick bites
+
+A quick bite is a tiny definition for a word or term you keep meeting (afterload, anion gap, a drug class). It is not an article: it lives in its own place (**Quick bites** in the sidebar, stored in `content/_bites.js`) and shows up as a hover card wherever you link it.
+
+- **Link one:** write `{{Term}}` (or `{{Term|the words you typed}}`) in an article. Linked words get a green dotted underline; hover (or tap) for the card. `{{Unknown}}` shows red and dashed, and clicking it opens the window to write it.
+- **On the spot, in the visual editor:** type `{{` and pick a bite from the list, or keep typing a new term and choose **Write quick bite “…”**. Or select a word (or just put the cursor in it) and press **Alt+B** / the **Bite** button. If the word is already a bite it is linked straight away; if not, a small window opens with the term filled in, you write it, save, and the link is inserted. Alt+B inside an existing link edits that bite. The Source tab has the same `{{` picker.
+- **Fixed format**, so the card is always scannable: **Term**, **Also called** (aliases: every alias resolves too), **What it means** (up to 220 characters), **Key fact** (the number, cut-off or rule; 160), **Memory hook** (mnemonic; 120), optional **Full article** (adds "Read more") and **Tags**. The window shows a live preview of the hover card. `**bold**`, `*italic*` and `==highlight==` work inside.
+- **Collisions:** a term or alias that another bite already has is refused, with a button to open that bite instead. Near matches (`Preload` vs `Preloads`) and an article with the same title show as warnings. Renaming a bite keeps the old name as an alias, so links already written still work. Deleting one warns how many articles use it and turns those links red.
+- **Browsing:** the **Quick bites** page lists everything with search, tag chips, where each bite is used, and Edit. Ctrl+K also searches bites and has **New quick bite…**.
+- **Saving:** like articles, with `npm start` they are written to `content/_bites.js`; without the server they are kept in this browser (and included in **Export backup**) until you run the server, which then writes them out.
 
 ## Editing
 

@@ -70,6 +70,9 @@
           href: MW.pageUrl(p.id, r.heading && r.via !== "title" && r.via !== "alias" ? r.heading.id : ""),
         });
       });
+      MW.bites.search(q, 4).forEach(function (b) {
+        out.push({ group: "Quick bites", icon: "zap", label: b.term, hint: MW.bites.shorten(b.means, 110), href: "bites.html#" + b.id });
+      });
       chapterMatches(tokens).slice(0, 4).forEach(function (m) {
         out.push({ group: "Chapters", icon: "folder", label: m.chapter.title, hint: m.subject.title, href: "index.html#" + m.subject.id + "-" + m.chapter.id });
       });

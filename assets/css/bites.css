@@ -1,0 +1,381 @@
+/* Quick bites: the inline {{term}}, its hover card, the write/edit window and the Quick bites page. */
+
+/* ---------- In the text ---------- */
+
+.bite {
+  border-bottom: 1.5px dotted color-mix(in oklab, var(--clinical) 75%, transparent);
+  cursor: help;
+  transition: background-color 0.12s;
+}
+
+.bite:hover,
+.bite:focus-visible {
+  background: color-mix(in oklab, var(--clinical) 12%, transparent);
+  outline: 0;
+}
+
+.bite.missing {
+  border-bottom: 1.5px dashed color-mix(in oklab, var(--destructive) 60%, transparent);
+  color: var(--destructive);
+}
+
+.ve-surface .bite {
+  cursor: text;
+}
+
+/* ---------- Hover card ---------- */
+
+.bite-card {
+  position: fixed;
+  z-index: 85;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 16px 10px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--clinical);
+  border-radius: 6px;
+  background: var(--paper);
+  box-shadow: 0 14px 40px color-mix(in oklab, var(--foreground) 22%, transparent);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  animation: preview-in 0.12s ease-out;
+}
+
+.bite-card[hidden] {
+  display: none;
+}
+
+.bite-card-static {
+  position: static;
+  width: auto;
+  max-width: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.bc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin-bottom: 4px;
+}
+
+.bc-term {
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.bc-aka {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.bc-means {
+  margin: 0 0 8px;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.bc-none {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.bc-row {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.bc-tag {
+  flex: none;
+  align-self: flex-start;
+  min-width: 36px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--clinical-soft);
+  color: var(--clinical);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.bc-hook .bc-tag {
+  background: var(--paper-soft);
+  color: var(--muted-foreground);
+}
+
+.bite-card strong {
+  color: var(--foreground);
+}
+
+.bite-card mark {
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: inherit;
+}
+
+.bc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}
+
+.bc-acts {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.bc-foot a,
+.bc-foot button,
+.bt-foot button,
+.bt-foot a {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bc-foot button:hover,
+.bt-foot button:hover,
+.bc-foot a:hover,
+.bt-foot a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Write / edit window ---------- */
+
+.bite-dialog {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  gap: 12px;
+}
+
+.bite-dialog .bd-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bite-dialog .dialog-hint {
+  margin: 0;
+}
+
+.bite-dialog code,
+.home-hero code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--paper-soft);
+  font-size: 0.92em;
+}
+
+.bite-dialog label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bite-dialog label em {
+  color: var(--muted-foreground);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.bite-dialog .bd-count.near {
+  color: var(--destructive);
+  font-weight: 600;
+}
+
+.bite-dialog textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.bite-dialog textarea:focus {
+  border-color: var(--primary);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.bd-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: var(--paper-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.bd-warn[hidden] {
+  display: none;
+}
+
+.bd-warn p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.bd-warn .bd-bad {
+  color: var(--destructive);
+}
+
+.bd-warn button {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.bd-tagpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.bd-tagpick:empty {
+  display: none;
+}
+
+.bd-tagpick button {
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}
+
+.bd-tagpick button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.bd-label {
+  margin: 0 0 6px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bd-actions {
+  justify-content: space-between;
+}
+
+/* ---------- Quick bites page ---------- */
+
+.bt-filters {
+  align-items: flex-start;
+}
+
+.bt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.bt-tags:empty {
+  display: none;
+}
+
+.bt-tags small {
+  opacity: 0.7;
+}
+
+.bite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.bite-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  transition: box-shadow 0.4s;
+}
+
+.bite-tile .bite-card-static {
+  background: var(--paper);
+}
+
+.bite-tile.flash .bite-card-static {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 45%, transparent);
+}
+
+.bt-use {
+  margin: 0 4px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bt-use a {
+  color: var(--primary);
+}
+
+.bt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 4px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.bt-foot .bc-tags button {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .bite-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Print ---------- */
+
+@media print {
+  .bite-card {
+    display: none;
+  }
+
+  .bite,
+  .bite.missing {
+    border-bottom: 1px dotted #777;
+    color: inherit;
+  }
+}

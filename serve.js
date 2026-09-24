@@ -10,6 +10,7 @@
  *   POST /api/image     { data }                → content/images/<hash>.<ext>, returns { path }
  *   POST /api/chapters  { extra }               → content/_chapters.js
  *   POST /api/structure { structure }           → content/_structure.js (subjects and chapters)
+ *   POST /api/bites     { bites }               → content/_bites.js (quick bites: one-glance definitions)
  */
 const http = require("http");
 const fs = require("fs");
@@ -112,6 +113,14 @@ async function api(req, res, url) {
       const ok = Array.isArray(b.structure) && b.structure.every((s) => s && typeof s.id === "string" && typeof s.title === "string" && Array.isArray(s.chapters) && s.chapters.every((c) => c && typeof c.id === "string" && typeof c.title === "string"));
       if (!ok) return reply(res, 400, { error: "Bad payload" });
       writeAtomic(path.join(CONTENT, "_structure.js"), "MedWiki.structure = " + JSON.stringify(b.structure, null, 2) + ";\n");
+      return reply(res, 200, { ok: true });
+    }
+    if (url === "/api/bites") {
+      const str = (v, max) => typeof v === "string" && v.length <= max;
+      const ok = Array.isArray(b.bites) && b.bites.length <= 5000 && b.bites.every((x) => x && validId(x.id) && str(x.term, 80) && x.term.trim() && str(x.means, 600) && str(x.key || "", 400) && str(x.hook || "", 300) && str(x.more || "", 200) &&
+        Array.isArray(x.aliases) && x.aliases.every((a) => str(a, 80)) && Array.isArray(x.tags) && x.tags.every((t) => str(t, 60)));
+      if (!ok) return reply(res, 400, { error: "Bad payload" });
+      writeAtomic(path.join(CONTENT, "_bites.js"), "MedWiki.bitesData = " + JSON.stringify(b.bites, null, 2) + ";\n");
       return reply(res, 200, { ok: true });
     }
     if (url === "/api/chapters") {

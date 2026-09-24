@@ -727,6 +727,93 @@ await test("public hosts hide empty preset subjects and chapters; localhost show
   await ev("MedWiki.isLocal = true");
 });
 
+console.log("\nQuick bites\n");
+
+await test("quick bites: saved to content/_bites.js, collisions caught, rename keeps old links working", async () => {
+  await go(BASE + "article.html?a=digoxin");
+  const r = await ev(`MedWiki.bites.save({ term: "Preload", aliases: ["LVEDV"], means: "Stretch of the ventricle at the end of filling.", key: "Raised by volume", hook: "Pre = before the pump", tags: ["cvs"] }).then(x => x.where)`);
+  ok(r === "file", "should be written through the server, got " + r);
+  const src = read("content/_bites.js");
+  ok(src.startsWith("MedWiki.bitesData = ") && src.includes('"Preload"') && src.includes('"LVEDV"'), "bite not written to content/_bites.js");
+  ok(await ev("MedWiki.bites.resolve('  lvedv ').term === 'Preload'"), "alias should resolve, case-insensitively");
+  ok(await ev("MedWiki.bites.conflicts('preload', [], '').exact.term === 'Preload'"), "same term should be an exact collision");
+  ok(await ev("MedWiki.bites.conflicts('Afterload', ['LVEDV'], '').alias.bite.term === 'Preload'"), "an alias owned by another bite should collide");
+  ok(await ev("MedWiki.bites.conflicts('Preloads', [], '').similar.length === 1"), "a near match should be flagged");
+  ok(await ev("MedWiki.bites.conflicts('Digoxin', [], '').article.title.length > 0"), "an article with the same title should be noted");
+  await ev(`MedWiki.bites.save({ id: "preload", term: "Ventricular preload", aliases: ["LVEDV"], means: "Stretch of the ventricle at the end of filling.", tags: ["cvs"] })`);
+  ok(await ev("MedWiki.bites.resolve('Preload').id === 'preload'"), "the old name should stay as an alias after a rename");
+  ok(await ev("MedWiki.bites.resolve('Ventricular preload').id === 'preload'"), "the new name should resolve");
+  await ev(`MedWiki.bites.save({ id: "preload", term: "Preload", aliases: ["LVEDV"], means: "Stretch of the ventricle at the end of filling.", key: "Raised by volume", hook: "Pre = before the pump", tags: ["cvs"] })`);
+});
+
+await test("quick bites: {{term}} renders, round-trips, and the hover card shows the fixed format", async () => {
+  await go(BASE + "article.html?a=digoxin");
+  const html = await ev("MedWiki.md.render('See {{Preload}} and {{LVEDV|the volume}} and {{Nothing yet}}.').html");
+  ok((html.match(/class="bite"/g) || []).length === 2 && html.includes('class="bite missing"'), "known bites and missing ones should render differently: " + html);
+  ok(!(await ev("MedWiki.md.plain('a {{Preload|pre}} b {{LVEDV}}')")).includes("{"), "search text should not contain braces");
+  const md = "A {{Preload}} B {{LVEDV|the volume}} C";
+  const back = await ev(`(()=>{ const d=document.createElement('div'); d.innerHTML=MedWiki.md.render(${JSON.stringify(md)},{edit:true}).html; return MedWiki.md.fromDom(d).trim(); })()`);
+  ok(back === md, "did not round-trip: " + JSON.stringify(back));
+  await ev(`(()=>{ const p=document.createElement('p'); p.id='bt-probe'; p.innerHTML=MedWiki.md.inline('Watch {{Preload}} closely'); document.querySelector('.prose').prepend(p); })()`);
+  await ev("document.querySelector('#bt-probe .bite').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  ok(await waitFor("document.querySelector('.bite-card') && !document.querySelector('.bite-card').hidden", 2000), "hover card did not open");
+  const card = await ev("document.querySelector('.bite-card').innerText");
+  ok(card.includes("Preload") && card.includes("Stretch of the ventricle") && card.includes("Raised by volume") && card.includes("Pre = before the pump") && card.includes("LVEDV"), "card is missing a field: " + card);
+  await ev("document.querySelector('#bt-probe').remove()");
+});
+
+await test("quick bites: {{ in the editor picks a bite or writes a new one on the spot; Alt+B defines the word at the cursor", async () => {
+  await ev("localStorage.removeItem('medwiki:editorMode')");
+  await go(BASE + "article.html?a=digoxin");
+  await ev("document.querySelector('.fab').click()");
+  await waitFor("!!document.querySelector('.ve-surface')");
+  const S = "document.querySelector('.ve-surface')";
+  const caretInNew = `(()=>{ const s=${S}; s.focus(); const p=document.createElement('p'); p.innerHTML='<br>'; s.appendChild(p); const r=document.createRange(); r.selectNodeContents(p); const g=getSelection(); g.removeAllRanges(); g.addRange(r); })()`;
+  await ev(caretInNew);
+  await text("{{prel");
+  ok(await waitFor("!!document.querySelector('.ve-menu') && document.querySelector('.ve-menu').innerText.includes('Preload')", 1500), "the {{ menu should list matching bites");
+  await key("Enter");
+  ok(await waitFor(`!!${S}.querySelector('.bite[data-bite="Preload"]')`, 1500), "picking a bite should insert it");
+  /* a term that does not exist: the small window opens, and saving inserts the link */
+  await ev(caretInNew);
+  await text("{{Afterload");
+  ok(await waitFor("[...document.querySelectorAll('.ve-menu-item')].some(b => b.innerText.includes('Write quick bite'))", 1500), "no create option");
+  await key("Enter");
+  ok(await waitFor("!!document.querySelector('.bite-dialog')", 1500), "the quick bite window did not open");
+  ok(await ev("document.querySelector('.bite-dialog [name=term]').value === 'Afterload'"), "term should be prefilled");
+  ok(await ev("document.querySelector('.bite-dialog [data-save]').disabled === true"), "saving should wait for a meaning");
+  await ev(`(()=>{ const f=document.querySelector('.bite-dialog'); const set=(n,v)=>{ f.elements[n].value=v; f.elements[n].dispatchEvent(new Event('input',{bubbles:true})); }; set('means','Resistance the ventricle pumps against.'); set('key','Raised by hypertension'); set('tags','cvs, physiology'); })()`);
+  ok(await ev("!document.querySelector('.bite-dialog [data-save]').disabled && document.querySelector('.bite-dialog .bite-card-static').innerText.includes('Raised by hypertension')"), "live preview / save state wrong");
+  await ev("document.querySelector('.bite-dialog').requestSubmit()");
+  ok(await waitFor(`!!${S}.querySelector('.bite[data-bite="Afterload"]')`, 3000), "saving should insert the link");
+  ok(await ev("MedWiki.bites.resolve('Afterload').tags.join() === 'cvs,physiology'"), "tags not saved");
+  ok(read("content/_bites.js").includes('"Afterload"'), "new bite not written to file");
+  /* the same term again is caught inside the window */
+  await ev("MedWiki.bites.open({ term: 'afterload' })");
+  ok(await ev("document.querySelector('.bd-warn').innerText.includes('already a quick bite') && document.querySelector('.bite-dialog [data-save]').disabled"), "duplicate term should block saving");
+  await ev("document.querySelector('.bite-dialog [data-cancel]').click()");
+  /* Alt+B with the cursor inside an existing word links it straight away */
+  await ev(`(()=>{ const s=${S}; s.focus(); const p=document.createElement('p'); p.textContent='Higher preload means more stretch.'; s.appendChild(p); const r=document.createRange(); r.setStart(p.firstChild, 9); r.collapse(true); const g=getSelection(); g.removeAllRanges(); g.addRange(r); })()`);
+  await ev(`${S}.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',altKey:true,bubbles:true,cancelable:true}))`);
+  ok(await waitFor(`[...${S}.querySelectorAll('.bite')].some(b => b.textContent === 'preload')`, 1500), "Alt+B should link the word at the cursor");
+  const out = await ev(`MedWiki.md.fromDom(${S})`);
+  ok(out.includes("{{Afterload}}") && out.includes("{{Preload}}") && out.includes("Higher {{Preload|preload}} means more stretch."), "the editor should write bites as {{ }}: " + out);
+  await ev("document.querySelector('[data-cancel]').click()");
+});
+
+await test("quick bites page lists them, palette finds them, and deleting one turns its links red", async () => {
+  await go(BASE + "bites.html");
+  ok(await waitFor("document.querySelectorAll('.bite-tile').length >= 2", 3000), "tiles missing");
+  ok(await ev("document.querySelector('.bite-tile').innerText.includes('Read more') || document.querySelector('.bite-tile .bc-term').textContent.length > 0"), "tile content missing");
+  await ev("document.getElementById('bt-text').value='volume'; document.getElementById('bt-text').dispatchEvent(new Event('input',{bubbles:true}))");
+  ok(await ev("document.querySelectorAll('.bite-tile').length === 1"), "search should narrow the list");
+  ok(await ev("MedWiki.bites.search('lvedv', 3)[0].term === 'Preload'"), "palette search should find by alias");
+  await ev("window.confirm = () => true; MedWiki.bites.remove('afterload').then(() => MedWiki.bites.remove('preload'))");
+  await sleep(600);
+  ok(!read("content/_bites.js").includes("Afterload") && !read("content/_bites.js").includes('"Preload"'), "deleted bites should leave the file");
+  ok(await ev(`(()=>{ const d=document.createElement('div'); d.innerHTML=MedWiki.md.inline('{{Preload}}'); return d.firstChild.classList.contains('missing'); })()`), "links to a deleted bite should turn red");
+});
+
 console.log("\nBrowser-only mode (no server)\n");
 
 await test("file:// falls back to saving in the browser", async () => {

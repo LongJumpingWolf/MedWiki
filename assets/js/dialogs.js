@@ -36,7 +36,7 @@
     var keys = [];
     Object.keys(pages).forEach(function (id) { keys = keys.concat(MW.images.refs(pages[id])); });
     MW.images.dataFor(keys).then(function (images) {
-      var data = { version: 3, exported: new Date().toISOString(), pages: pages, chapters: MW.store.get("medwiki:chapters", {}), blocktypes: MW.store.get("medwiki:blocktypes", null), structure: MW.store.get("medwiki:structure", null), images: images };
+      var data = { version: 3, exported: new Date().toISOString(), pages: pages, chapters: MW.store.get("medwiki:chapters", {}), blocktypes: MW.store.get("medwiki:blocktypes", null), structure: MW.store.get("medwiki:structure", null), bites: MW.store.get("medwiki:bites", null), images: images };
       MW.download("medwiki-backup-" + MW.today() + ".json", JSON.stringify(data), "application/json");
       MW.store.set("medwiki:lastBackup", Date.now());
       MW.toast("Backup downloaded (" + Object.keys(pages).length + " pages).");
@@ -67,6 +67,7 @@
           MW.store.set("medwiki:chapters", chapters);
           if (Array.isArray(data.blocktypes)) MW.store.set("medwiki:blocktypes", data.blocktypes);
           if (Array.isArray(data.structure)) MW.store.set("medwiki:structure", data.structure);
+          if (Array.isArray(data.bites)) MW.bites.merge(data.bites);
           var restored = Object.keys(data.images || {}).map(function (k) { return MW.images.restore(k, data.images[k]); });
           MW.rebuild();
           MW.toast("Imported " + Object.keys(data.pages).length + " pages.");
@@ -505,6 +506,8 @@
       ["Ctrl / Cmd + S", "Save while editing"],
       ["/ or ~ (editing)", "Insert a table, image, quote, flowchart or study block: ~image, ~table, ~quote…"],
       ["Ctrl / Cmd + K (editing)", "Link to a page or web address"],
+      ["Alt + B (editing)", "Quick bite: define the selected word or the word at the cursor"],
+      ["{{ (editing)", "Link a quick bite, or write a new one on the spot"],
       ["[[ (editing)", "Link to another page"],
       ["## , - , 1. , > then space", "Heading, bulleted list, numbered list, quote"],
       ["Ctrl + B / Ctrl + I", "Bold / italic"],

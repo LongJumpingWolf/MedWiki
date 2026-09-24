@@ -3,6 +3,7 @@
  *
  * Supported: ## / ### headings, paragraphs, **bold**, *italic*, ==highlight==,
  * `code`, [links](url), [[wikilinks]] ([[Page]], [[Page|label]], [[Page#Heading]]),
+ * quick bites ({{Term}}, {{Term|label}}: hover for a one-glance definition),
  * bullet / numbered lists (nested by indent), > quotes, --- rules, pipe tables,
  * images (![caption](src), src may be img:<key>), and study blocks:
  *
@@ -84,6 +85,13 @@
     );
   }
 
+  /* {{Term}} or {{Term|label}}: a quick bite. Turns into a hover definition (red dashed when no such bite exists yet). */
+  function bite(_, target, label) {
+    var t = MW.unesc(target).trim();
+    var found = MW.bites && MW.bites.resolve(t);
+    return '<span class="bite' + (found ? "" : " missing") + '" data-bite="' + esc(t) + '" tabindex="0">' + (label || target.trim()) + "</span>";
+  }
+
   function inline(src) {
     var codes = [];
     src = src.replace(/`([^`]+)`/g, function (_, c) {
@@ -95,6 +103,7 @@
       return imgTag(alt, u);
     });
     src = src.replace(/\[\[([^\]|#]+?)(?:#([^\]|]+?))?(?:\|([^\]]+?))?\]\]/g, wiki);
+    src = src.replace(/\{\{([^{}|]+?)(?:\|([^{}]+?))?\}\}/g, bite);
     src = src.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, t, u) {
       var ext = /^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : "";
       return '<a href="' + safeHref(u) + '"' + ext + ">" + t + "</a>";
@@ -110,6 +119,8 @@
 
   function plainInline(s) {
     return s
+      .replace(/\{\{([^{}|]+?)\|([^{}]+?)\}\}/g, "$2")
+      .replace(/\{\{([^{}|]+?)\}\}/g, "$1")
       .replace(/\[\[([^\]|#]+?)(?:#[^\]|]+?)?\|([^\]]+?)\]\]/g, "$2")
       .replace(/\[\[([^\]|#]+?)(?:#[^\]|]+?)?\]\]/g, "$1")
       .replace(/!\[[^\]]*\]\([^)]*\)/g, "")

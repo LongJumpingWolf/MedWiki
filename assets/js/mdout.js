@@ -91,6 +91,12 @@
         out += href && label.trim() && href !== "#" ? "[" + label + "](" + href + ")" : label;
         return;
       }
+      if (tag === "SPAN" && n.hasAttribute("data-bite")) {
+        var bt = n.getAttribute("data-bite").replace(/[{}|]/g, "");
+        var bl = n.textContent.replace(/[\u200b\ufeff]/g, "").replace(/\u00a0/g, " ").replace(/[{}|]/g, "").trim();
+        if (bl) out += "{{" + bt + (bl === bt ? "" : "|" + bl) + "}}";
+        return;
+      }
       inner = inlineOut(n);
       out += n.style ? styleMarks(n, inner) : inner;
     });

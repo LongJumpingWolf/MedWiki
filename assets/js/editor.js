@@ -3,6 +3,7 @@
  *   live styling      → markers dimmed, study blocks tinted, links coloured (a backdrop behind the textarea)
  *   /  at line start  → block menu (table, image, flowchart, study blocks…)
  *   [[                → page suggestions (creates red links for new pages)
+ *   {{                → quick bites (pick one, or write a new one in a small window)
  *   select text       → floating toolbar: bold, italic, highlight, link, wrap in a study block
  *   paste / drop an image, Ctrl+B / Ctrl+I, Enter continues lists
  * Attach with MW.editor.attach(textarea). If the textarea sits right after a
@@ -53,6 +54,10 @@
     t = t.replace(/\[\[([^\]\n]+?)\]\]/g, function (m, inner) {
       var target = MW.unesc(inner.replace(/<[^>]+>/g, "")).split(/\\?\||#/)[0];
       return '<span class="wl' + (MW.resolve(target) ? "" : " missing") + '">[[' + inner + "]]</span>";
+    });
+    t = t.replace(/\{\{([^}\n]+?)\}\}/g, function (m, inner) {
+      var target = MW.unesc(inner.replace(/<[^>]+>/g, "")).split(/\\?\||#/)[0];
+      return '<span class="wl' + (MW.bites && MW.bites.resolve(target) ? "" : " missing") + '">{{' + inner + "}}</span>";
     });
     return t;
   }
@@ -235,6 +240,19 @@
         return paintMenu();
       }
 
+      var bw = /\{\{([^}\n|]*)$/.exec(line);
+      if (bw) {
+        var bq = MW.norm(bw[1]).trim();
+        var found = MW.bites.list().filter(function (b) {
+          return !bq || [b.term].concat(b.aliases || []).some(function (t) { return MW.norm(t).indexOf(bq) !== -1; });
+        }).sort(function (a, b) {
+          return (MW.norm(a.term).indexOf(bq) === 0 ? 0 : 1) - (MW.norm(b.term).indexOf(bq) === 0 ? 0 : 1);
+        }).slice(0, 7).map(function (b) { return { label: b.term, hint: MW.bites.shorten(b.means, 60), insert: b.term }; });
+        if (bw[1].trim() && !MW.bites.resolve(bw[1])) found.push({ label: "Write quick bite “" + bw[1].trim() + "”", hint: "New", insert: bw[1].trim(), create: true });
+        state = { kind: "bite", from: lineStart + bw.index, items: found, index: 0 };
+        return found.length ? paintMenu() : closeMenu();
+      }
+
       var s = /^([ \t]*)[\/~]([a-z0-9-]*)$/i.exec(line);
       if (s) {
         var key = s[2].toLowerCase();
@@ -273,6 +291,16 @@
       if (st.kind === "wiki") {
         var to = ta.value.slice(caret, caret + 2) === "]]" ? caret + 2 : caret;
         insert(ta, st.from, to, "[[" + it.insert + "]]");
+        return;
+      }
+
+      if (st.kind === "bite") {
+        var bto = ta.value.slice(caret, caret + 2) === "}}" ? caret + 2 : caret;
+        if (!it.create) { insert(ta, st.from, bto, "{{" + it.insert + "}}"); return; }
+        MW.bites.open({ term: it.insert, onSaved: function (b) {
+          ta.focus();
+          insert(ta, st.from, Math.min(bto, ta.value.length), "{{" + b.term + "}}");
+        } });
         return;
       }
 
@@ -580,6 +608,13 @@
       paintBackdrop();
       fit();
       hideBar();
+      if (e.inputType === "insertText" && e.data === "{") {
+        var bc = ta.selectionStart;
+        if (ta.value.slice(bc - 2, bc) === "{{" && ta.value.slice(bc, bc + 2) !== "}}") {
+          insert(ta, bc, bc, "}}");
+          ta.setSelectionRange(bc, bc);
+        }
+      }
       if (e.inputType === "insertText" && e.data === "[") {
         var c = ta.selectionStart;
         if (ta.value.slice(c - 2, c) === "[[" && ta.value.slice(c, c + 2) !== "]]") {

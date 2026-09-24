@@ -32,7 +32,7 @@
     }
     if (text.length > 340) text = text.slice(0, 340).replace(/\s+\S*$/, "") + "…";
     /* Keep bold/italic/highlight but drop nested links. */
-    return MW.md.inline(text).replace(/<a\b[^>]*>(.*?)<\/a>/g, "$1");
+    return MW.md.inline(text).replace(/<a\b[^>]*>(.*?)<\/a>/g, "$1").replace(/<span class="bite[^"]*"[^>]*>(.*?)<\/span>/g, "$1");
   }
 
   function firstImage(page) {

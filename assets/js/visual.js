@@ -9,6 +9,7 @@
  *
  * Toolbar: undo/redo, text style, bold/italic/highlight, link (Ctrl+K), lists,
  * Insert menu. Type "/" on an empty line for the same menu, "[[" to link a page,
+ * "{{" (or Alt+B on a word) to link or write a quick bite,
  * "## ", "- ", "1. ", "> " to start a heading, list or quote. Tables, images and
  * study blocks get their own controls while you are inside them.
  */
@@ -34,6 +35,7 @@
       { k: "quote", label: "Quote", hint: "", group: "Insert", cmd: "quote", alt: "blockquote" },
       { k: "divider", label: "Divider", hint: "A horizontal line", group: "Insert", cmd: "hr", alt: "hr line rule separator" },
       { k: "link", label: "Link to a page", hint: "Ctrl+K", group: "Insert", cmd: "link", alt: "wiki page" },
+      { k: "bite", label: "Quick bite", hint: "Alt+B", group: "Insert", cmd: "bite", alt: "define definition glossary term word" },
     ].concat(studyItems());
   }
 
@@ -271,7 +273,8 @@
       '<button type="button" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><b>B</b></button>' +
       '<button type="button" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><em>I</em></button>' +
       '<button type="button" data-cmd="mark" title="Highlight a high-yield fact (Ctrl+Shift+H)" aria-label="Highlight"><span class="sb-hl">Hi</span></button><i></i>' +
-      '<button type="button" data-cmd="link" title="Link to a page or website (Ctrl+K)">Link</button><i></i>' +
+      '<button type="button" data-cmd="link" title="Link to a page or website (Ctrl+K)">Link</button>' +
+      '<button type="button" data-cmd="bite" title="Quick bite: define the selected word, or the word at the cursor (Alt+B)">Bite</button><i></i>' +
       '<button type="button" data-cmd="ul" title="Bulleted list" aria-label="Bulleted list">•&nbsp;&nbsp;≡</button>' +
       '<button type="button" data-cmd="ol" title="Numbered list" aria-label="Numbered list">1.&nbsp;≡</button>' +
       '<button type="button" data-cmd="outdent" title="Decrease indent (Shift+Tab)" aria-label="Decrease indent">⇤</button>' +
@@ -356,6 +359,7 @@
         case "italic": document.execCommand("italic"); break;
         case "mark": toggleMark(); break;
         case "link": return openLink();
+        case "bite": return openBite();
         case "ul": if (canList()) document.execCommand("insertUnorderedList"); break;
         case "ol": if (canList()) document.execCommand("insertOrderedList"); break;
         case "indent": indentList("indent"); break;
@@ -527,6 +531,15 @@
         }
       }
 
+      /* "{{": quick bites (pick one, or write a new one on the spot) */
+      if (node.nodeType === 3) {
+        var bb = /\{\{([^}\n|]*)$/.exec(node.nodeValue.slice(0, r.startOffset));
+        if (bb && !within(node, ".block-title, figcaption")) {
+          var bspan = { node: node, start: bb.index, end: r.startOffset };
+          return showMenu(biteItems(bb[1]), caretRect(), function (it) { commitBite(it, bspan); });
+        }
+      }
+
       /* "~image", "~table", "~quote"… anywhere in a line: the typed word is removed and the item inserted */
       if (node.nodeType === 3 && !within(node, ".block-title, figcaption, td, th, .flow-lines")) {
         var tl = /(^|\s| )~([a-z][a-z0-9 -]*)?$/i.exec(node.nodeValue.slice(0, r.startOffset));
@@ -600,6 +613,91 @@
       if (next === "]]") range.setEnd(span.node, span.end + 2);
       document.execCommand("insertHTML", false, MW.md.inline("[[" + it.target + "]]") + "&#8203;");
       changed(true);
+    }
+
+    /* ---------- Quick bites ({{ or Alt+B) ---------- */
+
+    function biteItems(raw) {
+      var q = MW.norm(raw).trim();
+      var items = MW.bites.list().filter(function (b) {
+        return !q || [b.term].concat(b.aliases || []).some(function (t) { return MW.norm(t).indexOf(q) !== -1; });
+      }).sort(function (a, b) {
+        return (MW.norm(a.term).indexOf(q) === 0 ? 0 : 1) - (MW.norm(b.term).indexOf(q) === 0 ? 0 : 1);
+      }).slice(0, 7).map(function (b) {
+        return { label: b.term, hint: MW.bites.shorten(b.means, 60), bite: b };
+      });
+      if (raw.trim() && !MW.bites.resolve(raw)) items.push({ label: "Write quick bite “" + raw.trim() + "”", hint: "New", create: raw.trim() });
+      return items;
+    }
+
+    /* the link text for a bite; what you typed is kept as the label when it differs from the term */
+    function biteHtml(b, typed) {
+      var label = (typed || "").replace(/[{}|]/g, "").trim();
+      return MW.md.inline("{{" + b.term + (label && label !== b.term ? "|" + label : "") + "}}") + "&#8203;";
+    }
+
+    function putBite(range, b, typed) {
+      surface.focus({ preventScroll: true });
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(range);
+      document.execCommand("insertHTML", false, biteHtml(b, typed));
+      MW.bites.refreshDom(surface);
+      changed(true);
+    }
+
+    /* Replaces the typed "{{query" with a bite link; a new bite is written in a small window first. */
+    function commitBite(it, span) {
+      var range = document.createRange();
+      var end = Math.min(span.end, span.node.length);
+      if (span.node.nodeValue.slice(end, end + 2) === "}}") end += 2;
+      range.setStart(span.node, span.start);
+      range.setEnd(span.node, end);
+      if (it.bite) return putBite(range, it.bite, "");
+      MW.bites.open({ term: it.create, onSaved: function (b) { putBite(range, b, ""); } });
+    }
+
+    /* The selected words, or the word at the cursor, become a quick bite (opened for editing when already one). */
+    function openBite() {
+      var r = selRange();
+      if (!r) { restore(); r = selRange(); }
+      if (!r) return;
+      var linked = here(".bite");
+      if (linked) {
+        var term = linked.getAttribute("data-bite");
+        var found = MW.bites.resolve(term);
+        return MW.bites.open({ id: found && found.id, term: term, onSaved: function () { MW.bites.refreshDom(surface); changed(true); } });
+      }
+      var range = r.cloneRange();
+      if (range.collapsed) {
+        var n = range.startContainer;
+        if (n.nodeType !== 3 || within(n, "pre")) return MW.toast("Put the cursor in a word, or select the term, then press Alt+B.");
+        var text = n.nodeValue;
+        var word = function (c) { return /[\p{L}\p{N}'’-]/u.test(c); };
+        var a = range.startOffset;
+        var z = a;
+        while (a > 0 && word(text[a - 1])) a--;
+        while (z < text.length && word(text[z])) z++;
+        while (a < z && /['’-]/.test(text[a])) a++;
+        while (z > a && /['’-]/.test(text[z - 1])) z--;
+        if (a === z) return MW.toast("Put the cursor in a word, or select the term, then press Alt+B.");
+        range.setStart(n, a);
+        range.setEnd(n, z);
+      } else {
+        var sc = range.startContainer;
+        var ec = range.endContainer;
+        while (sc.nodeType === 3 && range.startOffset < sc.length && /\s/.test(sc.nodeValue[range.startOffset]) && (sc !== ec || range.startOffset < range.endOffset)) range.setStart(sc, range.startOffset + 1);
+        while (ec.nodeType === 3 && range.endOffset > 0 && /\s/.test(ec.nodeValue[range.endOffset - 1]) && (sc !== ec || range.endOffset > range.startOffset)) range.setEnd(ec, range.endOffset - 1);
+        var holder = document.createElement("div");
+        holder.appendChild(range.cloneContents());
+        if (holder.querySelector("p, h2, h3, h4, li, table, figure, aside")) return MW.toast("Select a word or short phrase within one paragraph.");
+      }
+      var typed = range.toString().replace(/\s+/g, " ").trim();
+      if (!typed) return;
+      if (typed.length > MW.bites.LIMIT.term) return MW.toast("A quick bite term is a word or short phrase (up to " + MW.bites.LIMIT.term + " characters).");
+      var hit = MW.bites.resolve(typed);
+      if (hit) return putBite(range, hit, typed);
+      MW.bites.open({ term: typed, onSaved: function (b) { putBite(range, b, typed); } });
     }
 
     /* ---------- Links (Ctrl+K) ---------- */
@@ -1086,6 +1184,7 @@
       }
 
       if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); e.stopPropagation(); return openLink(); }
+      if (e.altKey && !mod && !e.shiftKey && e.code === "KeyB") { e.preventDefault(); return openBite(); }
       if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
       if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); return redo(); }
       if (mod && e.key.toLowerCase() === "u") { e.preventDefault(); return; }

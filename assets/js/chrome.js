@@ -202,6 +202,7 @@
       railLink("index.html", "Home", "house", page === "home" && !location.search) +
       railLink("index.html#bookmarks", "Saved", "bookmark") +
       railLink("pyq.html", "PYQ bank", "file", page === "pyq") +
+      railLink("bites.html", "Quick bites", "zap", page === "bites") +
       railLink("index.html?tags=all", "Tags", "tag", page === "home" && /tags=all/.test(location.search)) +
       '<button class="rail-link" type="button" data-print>' + MW.icon("printer") + "<span>Print articles</span></button>" +
       '<button class="rail-link rail-new" type="button" data-new>' + MW.icon("plus") + "<span>New page</span></button>" +
