@@ -306,7 +306,7 @@
       '<button type="button" data-mode="visual" aria-pressed="true">Visual</button><button type="button" data-mode="source" aria-pressed="false">Source</button></div>' +
       '<small>Write it as it will read. Switch to Source to edit the Markdown.</small></div>' +
       '<div class="pane-visual"><div class="prose ve-surface" id="f-visual"></div></div>' +
-      '<div class="pane-source" hidden><div class="editor-stack"><div class="editor-backdrop" aria-hidden="true"></div><textarea class="editor" id="f-body" spellcheck="true" aria-label="Article body (Markdown)" placeholder="Start writing. Use the toolbar above, or type / on a new line for blocks."></textarea></div></div>' +
+      '<div class="pane-source" hidden><div class="editor-stack"><div class="editor-backdrop" aria-hidden="true"></div><textarea class="editor" id="f-body" spellcheck="false" aria-label="Article body (Markdown)" placeholder="Start writing. Use the toolbar above, or type / on a new line for blocks."></textarea></div></div>' +
       '<div class="prose preview" id="f-preview" hidden></div></div>' +
       '<p class="editor-hint"><kbd>~</kbd> or <kbd>/</kbd> for tables, images, quotes and study blocks (try <kbd>~image</kbd>) · <kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>[[</kbd> to link a page · <kbd>Tab</kbd> in a table for the next cell · paste or drop images (they upload to ImgBB in the background).<br>' +
       (MW.server.available

@@ -8,6 +8,7 @@
     }
   }
   var root = document.documentElement;
+  root.spellcheck = false; // the browser dictionary is never used on this site
   var theme = read("medwiki:theme");
   if (!theme && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark";
   if (theme === "dark") root.setAttribute("data-theme", "dark");

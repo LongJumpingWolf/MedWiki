@@ -70,7 +70,8 @@
     surface.setAttribute("role", "textbox");
     surface.setAttribute("aria-multiline", "true");
     surface.setAttribute("aria-label", "Article text");
-    surface.spellcheck = true;
+    surface.spellcheck = false; // the browser dictionary is never used; MW.spell takes over
+    var speller = MW.spell ? MW.spell.attach(surface) : null;
     try {
       document.execCommand("defaultParagraphSeparator", false, "p");
       document.execCommand("styleWithCSS", false, false);
@@ -1166,6 +1167,7 @@
       toolbar: bar,
       destroy: function () {
         cleanups.forEach(function (fn) { fn(); });
+        if (speller) speller.destroy();
         hideMenu();
         closePop();
         clearTimeout(snapTimer);
