@@ -237,7 +237,7 @@
 
     /* The hover card body. opts.preview leaves out the footer (used inside the editor window). */
     /* The cover picture: its own, else the first in the description, else in the full article. */
-    cover: function (b) { return pictureOf(b, MW.md.render(b.means || "").html); },
+    cover: function (b) { return pictureOf(b, ""); },
 
     /* The whole description, rendered like an article. */
     bodyHtml: function (b) { return MW.md.render(b.means || "").html; },

@@ -68,7 +68,7 @@
     }
     document.title = b.term + " — Quick bites — MedWiki";
     var more = b.more && MW.resolve(b.more);
-    var pic = MW.bites.cover(b);
+    var pic = MW.bites.cover(b); /* only a cover you chose (or the article's); pictures in the description stay where you put them */
     root.innerHTML =
       '<header class="home-hero"><p class="kicker"><a href="bites.html">Quick bites</a></p><h1>' + MW.esc(b.term) + "</h1>" +
       ((b.aliases || []).length ? "<p>Also called " + MW.esc(b.aliases.join(", ")) + "</p>" : "") + "</header>" +
