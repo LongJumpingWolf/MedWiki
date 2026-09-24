@@ -10,6 +10,7 @@
  *   means      what it is, one or two sentences      (required, short)
  *   key        the one number, cut-off or rule
  *   hook       a mnemonic or picture
+ *   image      one picture (img:<key> or a web address); else the first image of the full article
  *   more       title of the full article, if there is one
  *   tags       for filtering on the Quick bites page
  *
@@ -62,6 +63,25 @@
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
       .replace(/==(.+?)==/g, "<mark>$1</mark>");
+  }
+
+  /* A displayable address for a stored picture (img:<key> refs come from the local image store). */
+  function imgSrc(v) {
+    var m = /^img:([a-z0-9]+)$/.exec(v || "");
+    if (m) {
+      var done = MW.images.normalize("(" + v + ")");
+      return done !== "(" + v + ")" ? done.slice(1, -1) : MW.images.get(m[1]) || "";
+    }
+    return /^(https?:|\.{0,2}\/|[\w-]+\/)/i.test(v || "") ? v : "";
+  }
+
+  /* The bite's own picture, else the first image in its full article. */
+  function pictureOf(b) {
+    var own = imgSrc(b.image);
+    if (own) return own;
+    var page = b.more && MW.resolve(b.more);
+    var m = page && /!\[[^\]]*\]\(([^)\s]+)\)/.exec(page.body);
+    return m ? imgSrc(m[1]) : "";
   }
 
   function shorten(s, n) {
@@ -171,6 +191,7 @@
         key: (data.key || "").trim(),
         hook: (data.hook || "").trim(),
         more: (data.more || "").trim(),
+        image: MW.images.normalize("(" + (data.image || "").trim() + ")").slice(1, -1),
         tags: csv((data.tags || []).join(",")),
         edited: MW.today(),
       };
@@ -221,7 +242,9 @@
           (more ? '<a href="' + MW.pageUrl(more.id) + '">Read more →</a>' : "") +
           '<button type="button" data-bite-edit="' + MW.esc(b.id) + '">Edit</button></span></div>';
       }
-      return '<div class="bc-head"><span class="bc-term">' + MW.esc(b.term) + "</span>" +
+      var pic = pictureOf(b);
+      return (pic ? '<img class="bc-image" src="' + MW.esc(pic) + '" alt="">' : "") +
+        '<div class="bc-head"><span class="bc-term">' + MW.esc(b.term) + "</span>" +
         ((b.aliases || []).length ? '<span class="bc-aka">also ' + MW.esc(b.aliases.join(", ")) + "</span>" : "") + "</div>" +
         '<p class="bc-means">' + (fmt(b.means || "") || '<span class="bc-none">What it means…</span>') + "</p>" +
         (b.key ? '<p class="bc-row"><span class="bc-tag">Key</span><span>' + fmt(b.key) + "</span></p>" : "") +
@@ -333,7 +356,8 @@
 
   function openDialog(opts) {
     var editing = opts.id ? bites.get(opts.id) : null;
-    var draft = editing ? clone(editing) : { term: opts.term || "", aliases: [], means: "", key: "", hook: "", more: "", tags: opts.tags || [] };
+    var draft = editing ? clone(editing) : { term: opts.term || "", aliases: [], means: "", key: "", hook: "", more: "", image: "", tags: opts.tags || [] };
+    var image = draft.image || "";
     var lastFocus = document.activeElement;
     var wrap = document.createElement("div");
     wrap.className = "overlay";
@@ -352,6 +376,9 @@
       '<div class="dialog-row"><label><span>Full article <em>(optional)</em></span><input name="more" list="bd-articles" autocomplete="off" placeholder="Title of the article"></label>' +
       '<label><span>Tags <em>(comma separated)</em></span><input name="tags" autocomplete="off" placeholder="drug, lab, sign"></label></div>' +
       '<datalist id="bd-articles">' + articles + "</datalist>" +
+      '<div class="bd-pic"><span class="bd-pic-box" data-pic></span><span class="bd-pic-text"><strong>Picture</strong> <em>(optional)</em>' +
+      '<small>Choose, paste or drop one here. Without one, the card shows the first image of the full article.</small>' +
+      '<span class="bd-pic-btns"><button type="button" class="btn" data-pick>Choose picture…</button><button type="button" class="btn" data-unpic hidden>Remove</button></span></span></div>' +
       '<div class="bd-tagpick" aria-label="Existing tags"></div>' +
       '<div class="bd-preview"><p class="bd-label">Hover preview</p><div class="bite-card bite-card-static"></div></div>' +
       '<div class="dialog-actions bd-actions"><span class="dialog-actions-left">' +
@@ -383,6 +410,7 @@
         key: el.key.value.trim(),
         hook: el.hook.value.trim(),
         more: el.more.value.trim(),
+        image: image,
         tags: csv(el.tags.value),
       };
     }
@@ -426,11 +454,35 @@
         n.textContent = len + "/" + LIMIT[k];
         n.classList.toggle("near", len > LIMIT[k] * 0.9);
       });
-      preview.innerHTML = bites.cardHtml({ id: "", term: d.term || "Term", aliases: d.aliases, means: d.means, key: d.key, hook: d.hook, more: d.more, tags: d.tags }, { preview: true });
+      preview.innerHTML = bites.cardHtml({ id: "", term: d.term || "Term", aliases: d.aliases, means: d.means, key: d.key, hook: d.hook, more: d.more, image: d.image, tags: d.tags }, { preview: true });
+      var box = wrap.querySelector("[data-pic]");
+      var src = imgSrc(image);
+      box.innerHTML = src ? '<img src="' + MW.esc(src) + '" alt="">' : MW.icon("image", 22);
+      wrap.querySelector("[data-unpic]").hidden = !image;
       paintTags(d);
     }
 
     form.addEventListener("input", check);
+
+    function addFile(file) {
+      if (!file || !/^image\//.test(file.type)) return;
+      MW.images.add(file).then(function (ref) { image = ref; check(); }, function (err) { MW.toast(err.message); });
+    }
+    var picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "image/*";
+    picker.addEventListener("change", function () { addFile(picker.files[0]); });
+    wrap.querySelector("[data-pick]").addEventListener("click", function () { picker.click(); });
+    wrap.querySelector("[data-unpic]").addEventListener("click", function () { image = ""; check(); });
+    wrap.addEventListener("paste", function (e) {
+      var f = [].slice.call((e.clipboardData && e.clipboardData.files) || []).filter(function (x) { return /^image\//.test(x.type); })[0];
+      if (f) { e.preventDefault(); addFile(f); }
+    });
+    wrap.addEventListener("dragover", function (e) { e.preventDefault(); });
+    wrap.addEventListener("drop", function (e) {
+      e.preventDefault();
+      addFile([].slice.call((e.dataTransfer && e.dataTransfer.files) || [])[0]);
+    });
     pick.addEventListener("click", function (e) {
       var b = e.target.closest("[data-tag]");
       if (!b) return;
@@ -453,7 +505,13 @@
     wrap.addEventListener("keydown", function (e) {
       if (e.key === "Escape") { e.stopPropagation(); close(); if (opts.onCancel) opts.onCancel(); }
       else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); }
-      else if (e.key === "Enter" && e.target.tagName === "TEXTAREA") e.preventDefault(); /* the meaning is one paragraph */
+      else if (e.key === "Enter" && !e.shiftKey && /^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "file") {
+        /* Enter moves to the next field; the last one moves to Save (Ctrl+Enter saves from anywhere) */
+        e.preventDefault();
+        var order = [el.term, el.aliases, el.means, el.key, el.hook, el.more, el.tags];
+        var at = order.indexOf(e.target);
+        (order[at + 1] || save).focus();
+      }
     });
 
     var del = wrap.querySelector("[data-del]");

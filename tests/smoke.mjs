@@ -801,6 +801,19 @@ await test("quick bites: {{ in the editor picks a bite or writes a new one on th
   await ev("document.querySelector('[data-cancel]').click()");
 });
 
+await test("quick bites: Enter moves to the next field, and a picture (own, or the linked article's first) shows on the card", async () => {
+  await go(BASE + "article.html?a=digoxin");
+  await ev("MedWiki.bites.open({ term: 'Enter test' })");
+  await ev("document.querySelector('.bite-dialog [name=means]').focus()");
+  await key("Enter");
+  ok(await ev("document.activeElement.name === 'key'"), "Enter should move to the next field, not submit");
+  ok(await ev("!!document.querySelector('.bite-dialog') && !!document.querySelector('.bite-dialog [data-pick]')"), "dialog should stay open with a picture control");
+  await ev("document.querySelector('.bite-dialog [data-cancel]').click()");
+  const own = await ev("MedWiki.bites.cardHtml({ id:'x', term:'T', aliases:[], means:'m', image:'https://example.com/a.png', tags:[] }, { preview: true })");
+  ok(own.includes('class="bc-image" src="https://example.com/a.png"'), "own picture missing from the card");
+  ok(!(await ev("MedWiki.bites.cardHtml({ id:'x', term:'T', aliases:[], means:'m', tags:[] }, { preview: true })")).includes("bc-image"), "no picture, no image");
+});
+
 await test("quick bites page lists them, palette finds them, and deleting one turns its links red", async () => {
   await go(BASE + "bites.html");
   ok(await waitFor("document.querySelectorAll('.bite-tile').length >= 2", 3000), "tiles missing");

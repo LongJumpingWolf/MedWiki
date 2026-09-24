@@ -158,7 +158,71 @@
   text-decoration: underline;
 }
 
+.bc-image {
+  display: block;
+  width: calc(100% + 32px);
+  max-height: 170px;
+  margin: -12px -16px 10px;
+  border-radius: 3px 3px 0 0;
+  object-fit: cover;
+}
+
 /* ---------- Write / edit window ---------- */
+
+.bd-pic {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bd-pic-box {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 84px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  color: var(--muted-foreground);
+}
+
+.bd-pic-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bd-pic-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}
+
+.bd-pic-text strong {
+  color: var(--foreground);
+  font-size: 11.5px;
+}
+
+.bd-pic-text em {
+  font-style: normal;
+}
+
+.bd-pic-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.bd-pic-btns .btn {
+  height: 30px;
+  font-size: 12.5px;
+}
+
+.bd-pic-btns [hidden] {
+  display: none;
+}
 
 .bite-dialog {
   width: min(560px, 100%);
