@@ -1,1 +1,1 @@
-MedWiki.extraChapters = {};
+MedWiki.extraChapters = {"microbiology":[{"id":"spotters","title":"Spotters"}]};
