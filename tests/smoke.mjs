@@ -497,6 +497,18 @@ await test("spotter layout: spaced cards, and in revision mode captions are hidd
   await ev("MedWiki.deleteFile('spot-layout')");
 });
 
+await test("print view: headings form a clean outline, and the PDF gets bookmarks for them", async () => {
+  await go(BASE + "print.html?a=digoxin,tuberculosis");
+  ok(await waitFor("document.querySelectorAll('#sheet .jr-article').length === 2", 4000), "two articles expected");
+  ok(await ev("document.querySelectorAll('#sheet .jr-cover h2').length === 0"), "the contents page must not add headings to the PDF outline");
+  ok(await ev("document.querySelectorAll('#sheet .jr-article > .jr-head > h1').length === 2"), "each article title should be a top-level heading");
+  ok(await ev("document.querySelectorAll('#sheet .jr-text h2').length > 0"), "sections should be second-level headings");
+  const r = await send("Page.printToPDF", { generateDocumentOutline: true, generateTaggedPDF: true, printBackground: true });
+  const pdf = Buffer.from(r.data, "base64").toString("latin1");
+  ok(pdf.includes("/Outlines"), "the PDF should carry a bookmark outline");
+  ok(pdf.includes("Digoxin"), "article titles should be in the PDF");
+});
+
 console.log("\nVisual editor\n");
 
 await test("every article round-trips: Markdown → editor DOM → Markdown renders identically", async () => {

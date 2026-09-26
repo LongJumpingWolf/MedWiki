@@ -61,13 +61,13 @@
           }).join("") + "</ol></li>"
           : "";
       }).join("");
-      groups.push('<section class="jr-toc-group"><h2>' + esc(s.title) + "</h2><ul>" + chapters + "</ul></section>");
+      groups.push('<section class="jr-toc-group"><p class="jr-toc-sub">' + esc(s.title) + "</p><ul>" + chapters + "</ul></section>");
     });
     var d = new Date();
     var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     return '<section class="jr-cover"><p class="jr-brand">MedWiki</p><h1>Study notes</h1>' +
       '<p class="jr-date">' + d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear() + " · " + list.length + (list.length === 1 ? " article" : " articles") + "</p>" +
-      '<nav class="jr-toc" aria-label="Contents"><h2 class="jr-toc-title">Contents</h2>' + groups.join("") + "</nav></section>";
+      '<nav class="jr-toc" aria-label="Contents"><p class="jr-toc-title">Contents</p>' + groups.join("") + "</nav></section>";
   }
 
   function applyPrefs() {
