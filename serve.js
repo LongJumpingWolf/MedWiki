@@ -3,7 +3,10 @@
  * MedWiki local server: serves the site and lets the editor save straight
  * into content/. No dependencies. Usage:  node serve.js   (PORT=8080 node serve.js)
  *
- * Only accepts writes from localhost. Endpoints (all JSON):
+ * Writing is for devices on your own network only (localhost, or a private LAN address such as your
+ * wifi). Articles are private unless their front matter says "visibility: public": private ones live
+ * in content/private/ (git-ignored, never published); public ones in content/ and the manifest in data.js.
+ * Endpoints (all JSON):
  *   GET  /api/ping
  *   POST /api/save      { id, source }          → content/<id>.js, adds id to the manifest
  *   POST /api/delete    { id }                  → removes content/<id>.js and its manifest entry
@@ -20,7 +23,10 @@ const crypto = require("crypto");
 const ROOT = process.env.MEDWIKI_ROOT ? path.resolve(process.env.MEDWIKI_ROOT) : __dirname;
 const PORT = Number(process.env.PORT) || 5173;
 const CONTENT = path.join(ROOT, "content");
+const PRIVATE = path.join(CONTENT, "private");
+const PRIVATE_MANIFEST = path.join(PRIVATE, "_manifest.js");
 const DATA_JS = path.join(ROOT, "assets", "js", "data.js");
+const HOST = process.env.HOST || "0.0.0.0";
 const MAX_BODY = 30 * 1024 * 1024;
 
 const TYPES = {
@@ -76,10 +82,66 @@ function removeFromManifest(id) {
   if (next !== src) writeAtomic(DATA_JS, next);
 }
 
+/* Loopback or a private-network address (10/8, 172.16/12, 192.168/16, link-local, IPv6 ULA). */
+function isPrivateAddress(addr) {
+  let a = String(addr || "").replace(/^::ffff:/i, "");
+  if (a === "::1" || a === "127.0.0.1" || /^127\./.test(a)) return true;
+  if (/^10\./.test(a) || /^192\.168\./.test(a) || /^169\.254\./.test(a)) return true;
+  const m = /^172\.(\d+)\./.exec(a);
+  if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return true;
+  return /^(fe80|fc|fd)/i.test(a);
+}
+
+/* A Host header naming this machine or a LAN host, never a public domain (blocks DNS rebinding). */
+function isLanHostHeader(host) {
+  const h = String(host || "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "").toLowerCase();
+  if (!h) return false;
+  if (h === "localhost" || h === "::1" || isPrivateAddress(h)) return true;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return false;
+  return h.endsWith(".local") || !h.includes(".");
+}
+
+function isWriter(req) {
+  return isPrivateAddress(req.socket.remoteAddress) && isLanHostHeader(req.headers.host);
+}
+
+function isPublicSource(source) {
+  const m = /^MedWiki\.define\("[^"]*",\s*`---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+  return !!m && /^visibility:\s*public\s*$/m.test(m[1]);
+}
+
+function readPrivateIds() {
+  try {
+    const m = /\[([\s\S]*?)\]/.exec(fs.readFileSync(PRIVATE_MANIFEST, "utf8"));
+    return m ? (m[1].match(/"([^"]+)"/g) || []).map((x) => x.slice(1, -1)) : [];
+  } catch (e) { return []; }
+}
+
+function writePrivateIds(ids) {
+  const loader =
+    "MedWiki.privateManifest.forEach(function (id) {\n" +
+    "  document.write('<script src=\"content/private/' + id + '.js?t=' + Date.now() + '\"><\\/script>');\n" +
+    "});\n";
+  writeAtomic(PRIVATE_MANIFEST, "/* Private articles. This folder is git-ignored and never published. */\nMedWiki.privateManifest = " + JSON.stringify(ids, null, 2) + ";\n" + loader);
+}
+
+function addPrivate(id) {
+  const ids = readPrivateIds();
+  if (!ids.includes(id)) { ids.push(id); writePrivateIds(ids); }
+}
+
+function removePrivate(id) {
+  const ids = readPrivateIds();
+  if (ids.includes(id)) writePrivateIds(ids.filter((x) => x !== id));
+}
+
+function dropFile(file) {
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+}
+
 async function api(req, res, url) {
-  const host = (req.headers.host || "").split(":")[0];
-  if (!["localhost", "127.0.0.1", "[::1]"].includes(host)) return reply(res, 403, { error: "Local access only" });
-  if (url === "/api/ping") return reply(res, 200, { ok: true, version: 1 });
+  if (!isWriter(req)) return reply(res, 403, { error: "Not an authorized writer" });
+  if (url === "/api/ping") return reply(res, 200, { ok: true, version: 2, writer: true });
   if (req.method !== "POST") return reply(res, 405, { error: "POST required" });
 
   let b;
@@ -89,15 +151,25 @@ async function api(req, res, url) {
     if (url === "/api/save") {
       if (!validId(b.id)) return reply(res, 400, { error: "Bad id" });
       if (typeof b.source !== "string" || !b.source.startsWith('MedWiki.define("' + b.id + '"')) return reply(res, 400, { error: "Bad source" });
-      writeAtomic(path.join(CONTENT, b.id + ".js"), b.source);
-      addToManifest(b.id);
+      if (isPublicSource(b.source)) {
+        writeAtomic(path.join(CONTENT, b.id + ".js"), b.source);
+        addToManifest(b.id);
+        dropFile(path.join(PRIVATE, b.id + ".js"));
+        removePrivate(b.id);
+      } else {
+        writeAtomic(path.join(PRIVATE, b.id + ".js"), b.source);
+        addPrivate(b.id);
+        dropFile(path.join(CONTENT, b.id + ".js"));
+        removeFromManifest(b.id);
+      }
       return reply(res, 200, { ok: true });
     }
     if (url === "/api/delete") {
       if (!validId(b.id)) return reply(res, 400, { error: "Bad id" });
-      const f = path.join(CONTENT, b.id + ".js");
-      if (fs.existsSync(f)) fs.unlinkSync(f);
+      dropFile(path.join(CONTENT, b.id + ".js"));
+      dropFile(path.join(PRIVATE, b.id + ".js"));
       removeFromManifest(b.id);
+      removePrivate(b.id);
       return reply(res, 200, { ok: true });
     }
     if (url === "/api/image") {
@@ -137,6 +209,7 @@ async function api(req, res, url) {
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent((req.url || "/").split("?")[0]);
   if (url.startsWith("/api/")) return api(req, res, url);
+  if (url.startsWith("/content/private/") && !isWriter(req)) return reply(res, 403, "Not an authorized writer", "text/plain");
   let rel = url === "/" ? "/index.html" : url;
   const file = path.normalize(path.join(ROOT, rel));
   if (!file.startsWith(ROOT + path.sep) && file !== ROOT) return reply(res, 403, "Forbidden", "text/plain");
@@ -146,6 +219,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log("\n  MedWiki is running at http://localhost:" + PORT + "\n  Edits are saved to " + path.relative(process.cwd(), CONTENT) + (path.relative(process.cwd(), CONTENT) ? "" : "content") + "/\n  Press Ctrl+C to stop.\n");
+server.listen(PORT, HOST, () => {
+  const lan = [].concat(...Object.values(require("os").networkInterfaces())).filter((n) => n.family === "IPv4" && !n.internal).map((n) => "http://" + n.address + ":" + PORT);
+  console.log("\n  MedWiki is running at http://localhost:" + PORT + (lan.length ? "\n  On your wifi (writers only): " + lan.join("  ") : "") + "\n  Edits are saved to " + path.relative(process.cwd(), CONTENT) + (path.relative(process.cwd(), CONTENT) ? "" : "content") + "/\n  Press Ctrl+C to stop.\n");
 });

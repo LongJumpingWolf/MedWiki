@@ -11,6 +11,20 @@ npm test           # end-to-end smoke test (needs Chrome; uses a temp copy, neve
 
 You can also just open `index.html`. Everything works that way too, but edits are then kept **in this browser only** (see "Saving").
 
+## Private by default, shared on purpose
+
+Only you can write, and every article starts private.
+
+- **Who can write:** `node serve.js` listens on your network, and accepts writes only from localhost or a private
+  address (your wifi: 192.168.x.x, 10.x.x.x, 172.16-31.x.x, `.local`). Anyone else, including everyone who reaches the
+  published site, is a reader: no editing controls, and trying to write shows a "MedWiki is in beta, you are not an
+  authorized writer" notice. Set `HOST=127.0.0.1` to limit it to this computer.
+- **Private articles** are saved in `content/private/`, which is git-ignored, so `npm run publish` never uploads them.
+- **Sharing one:** open it and click the Private chip in the info strip (or set "Who can read it" in Page details).
+  It moves to `content/` and the public manifest, and goes live for others the next time you publish.
+  Click Public to take it back.
+- Anyone on your wifi can write, so only share the wifi with people you trust.
+
 ## Layout
 
 ```

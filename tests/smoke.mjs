@@ -9,6 +9,7 @@
  * Requires Node 22+ (global WebSocket/fetch). Never touches your real content/.
  */
 import { spawn } from "node:child_process";
+import { request as httpRequest } from "node:http";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -186,7 +187,7 @@ await test("right-click an article in the tree to delete it; you must type delet
   await go(BASE + "index.html");
   await ev("MedWiki.createPage({ title: 'Trash Me', subject: 'pathology', chapter: 'general' })");
   await sleep(600);
-  ok(existsSync(file("content/trash-me.js")), "throwaway page file missing");
+  ok(existsSync(file("content/private/trash-me.js")), "throwaway page file missing");
   await go(BASE + "index.html");
   await ev("document.querySelector('.leaf[href=\"article.html?a=trash-me\"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }))");
   ok(await ev("!!document.querySelector('.ctx-menu .danger')"), "context menu missing");
@@ -199,8 +200,8 @@ await test("right-click an article in the tree to delete it; you must type delet
   await ev("document.querySelector('.delete-dialog [type=submit]').click()");
   ok(await waitFor("!document.querySelector('.delete-dialog')", 4000), "dialog should close");
   await sleep(400);
-  ok(!existsSync(file("content/trash-me.js")), "file should be deleted");
-  ok(!read("assets/js/data.js").includes('"trash-me"'), "manifest entry should be removed");
+  ok(!existsSync(file("content/private/trash-me.js")), "file should be deleted");
+  ok(!read("content/private/_manifest.js").includes('"trash-me"'), "manifest entry should be removed");
   ok(await ev("!document.querySelector('.leaf[href=\"article.html?a=trash-me\"]')"), "article should leave the tree");
 });
 
@@ -324,8 +325,8 @@ await test("create page through the dialog: new chapter, file and manifest writt
   await ev("MedWiki.newPageDialog({title:'Smoke Test Page', subject:'pathology'})");
   await ev("(()=>{const f=document.querySelector('.dialog'); const c=f.elements.chapter; c.value='__new'; c.dispatchEvent(new Event('change')); f.elements.newChapter.value='Smoke Chapter'; f.querySelector('[type=submit]').click()})()");
   ok(await waitFor("location.search.includes('edit=1')", 5000), "did not navigate to the editor");
-  ok(existsSync(file("content/smoke-test-page.js")), "page file missing");
-  ok(read("assets/js/data.js").includes('"smoke-test-page"'), "manifest not updated");
+  ok(existsSync(file("content/private/smoke-test-page.js")), "page file missing");
+  ok(read("content/private/_manifest.js").includes('"smoke-test-page"'), "private manifest not updated");
   ok(read("content/_chapters.js").includes("Smoke Chapter"), "chapter not persisted");
 });
 
@@ -361,7 +362,7 @@ await test("ImgBB: bad key pauses, good key uploads in the background and rewrit
   ok(await waitFor("document.querySelector('.article .prose figure.fig-right') !== null", 4000), "figure not rendered with alignment");
   ok(await ev("document.querySelector('.prose figure').style.getPropertyValue('--w') === '50%'"), "width not applied");
   ok(await ev("document.querySelector('.prose img').getAttribute('data-state') === 'pending'"), "pending state missing");
-  ok(read("content/smoke-test-page.js").includes("img:"), "saved source should hold the local reference");
+  ok(read("content/private/smoke-test-page.js").includes("img:"), "saved source should hold the local reference");
   await ev(`(()=>{
     window.__orig = window.fetch;
     window.__mode = 'bad';
@@ -379,7 +380,7 @@ await test("ImgBB: bad key pauses, good key uploads in the background and rewrit
   ok(await waitFor("MedWiki.images.summary().done === 1", 8000), "upload did not complete");
   ok(await waitFor("MedWiki.page('smoke-test-page').body.includes('https://i.ibb.co/aaa/pic.png')", 4000), "article not rewritten");
   await sleep(500);
-  const saved = read("content/smoke-test-page.js");
+  const saved = read("content/private/smoke-test-page.js");
   ok(saved.includes("https://i.ibb.co/aaa/pic.png") && !saved.includes("img:"), "file should hold the hosted URL");
   ok(saved.includes("{50% right}"), "size should be kept");
 });
@@ -387,8 +388,8 @@ await test("ImgBB: bad key pauses, good key uploads in the background and rewrit
 await test("delete removes the file and manifest entry", async () => {
   await ev("MedWiki.deleteFile('smoke-test-page')");
   await sleep(300);
-  ok(!existsSync(file("content/smoke-test-page.js")));
-  ok(!read("assets/js/data.js").includes('"smoke-test-page"'));
+  ok(!existsSync(file("content/private/smoke-test-page.js")));
+  ok(!read("content/private/_manifest.js").includes('"smoke-test-page"'));
 });
 
 await test("create page dialog: pasting HTML/code creates the page pre-filled, no default overview text", async () => {
@@ -396,8 +397,8 @@ await test("create page dialog: pasting HTML/code creates the page pre-filled, n
   await ev("MedWiki.newPageDialog({title:'Smoke Raw Page', subject:'pathology'})");
   await ev("(()=>{const f=document.querySelector('.dialog'); f.elements.rawToggle.click(); f.elements.rawBody.value='<div class=\"widget\"><p>Imported as-is</p></div>'; f.querySelector('[type=submit]').click()})()");
   ok(await waitFor("!location.search.includes('edit=1') && location.search.includes('a=smoke-raw-page')", 5000), "did not navigate to the new page");
-  ok(existsSync(file("content/smoke-raw-page.js")), "page file missing");
-  const src = read("content/smoke-raw-page.js");
+  ok(existsSync(file("content/private/smoke-raw-page.js")), "page file missing");
+  const src = read("content/private/smoke-raw-page.js");
   ok(src.includes("::: html") && src.includes("Imported as-is"), "raw body not saved verbatim");
   ok(!src.includes("## Overview"), "should not fall back to the default overview body");
   ok(await waitFor("document.querySelector('.prose').innerHTML.includes('Imported as-is')", 4000), "raw HTML was not rendered on the page");
@@ -417,6 +418,48 @@ await test("importing HTML: embedded images are queued (and deduped), already-ho
   ok((result.html.match(/img:[a-z0-9]+/g) || []).length === 2, "both occurrences should carry the same img: token");
   const second = await ev(`MedWiki.images.importHtml('<img src="data:image/png;base64,${PNG}">').then(r => JSON.stringify(r))`);
   ok(JSON.parse(second).reused === 1, "the same image pasted in a later import should also be reused, not re-uploaded");
+});
+
+await test("privacy: new pages are private and unpublished; going public moves them; readers cannot write", async () => {
+  await go(BASE + "index.html");
+  await ev("MedWiki.createPage({ title: 'Secret Note', subject: 'pathology', chapter: 'general' })");
+  await sleep(600);
+  ok(existsSync(file("content/private/secret-note.js")) && !existsSync(file("content/secret-note.js")), "a new page must be written only to content/private/");
+  ok(!read("assets/js/data.js").includes('"secret-note"'), "a private page must never enter the public manifest");
+  ok(/^visibility: private$/m.test(read("content/private/secret-note.js")), "private flag missing");
+  await go(BASE + "article.html?a=secret-note");
+  ok(await ev("document.querySelector('[data-visibility]').textContent === 'Private'"), "private chip missing");
+  await ev("document.querySelector('[data-visibility]').click()");
+  await sleep(900);
+  ok(existsSync(file("content/secret-note.js")) && !existsSync(file("content/private/secret-note.js")), "making it public should move the file");
+  ok(read("assets/js/data.js").includes('"secret-note"') && !read("content/private/_manifest.js").includes("secret-note"), "manifests not updated on publish");
+  await ev("document.querySelector('[data-visibility]').click()");
+  await sleep(900);
+  ok(existsSync(file("content/private/secret-note.js")) && !existsSync(file("content/secret-note.js")), "making it private again should move it back");
+  await ev("MedWiki.canWrite = false; MedWiki.rebuild()");
+  ok(await ev("!MedWiki.pages.some(p => p.visibility !== 'public')"), "a reader must only see public pages");
+  await ev("MedWiki.newPageDialog({})");
+  ok(await ev("!!document.querySelector('.beta-notice') && document.querySelector('.beta-notice').textContent.includes('not an authorized writer')"), "beta notice missing");
+  ok(await ev("!document.querySelector('form.dialog')"), "readers must not get the new page dialog");
+  ok(await ev("MedWiki.savePage('digoxin', {}, 'x') === false"), "readers must not save");
+  await ev("MedWiki.canWrite = true; MedWiki.rebuild(); document.querySelectorAll('.beta-notice').forEach(n => n.remove())");
+  await ev("MedWiki.deleteFile('secret-note')");
+  await sleep(400);
+  ok(!existsSync(file("content/private/secret-note.js")), "cleanup failed");
+});
+
+await test("privacy: the server refuses writes and private files from non-LAN hosts", async () => {
+  const req = (path, host, method = "GET") => new Promise((resolve) => {
+    const r = httpRequest({ host: "127.0.0.1", port: PORT, path, method, headers: { Host: host, "Content-Type": "application/json" } }, (res) => { res.resume(); resolve(res.statusCode); });
+    r.on("error", () => resolve(0));
+    if (method === "POST") r.write("{}");
+    r.end();
+  });
+  ok((await req("/api/ping", "localhost:" + PORT, "POST")) === 200, "localhost should be a writer");
+  ok((await req("/api/ping", "192.168.1.20:" + PORT, "POST")) === 200, "a LAN host name should be a writer");
+  ok((await req("/api/ping", "medwiki.example.com", "POST")) === 403, "a public host name must be refused");
+  ok((await req("/api/ping", "8.8.8.8", "POST")) === 403, "a public address must be refused");
+  ok((await req("/content/private/_manifest.js", "medwiki.example.com")) === 403, "private files must not be served to public hosts");
 });
 
 console.log("\nVisual editor\n");
@@ -507,7 +550,7 @@ await test("typing, style, bold, highlight, slash table, block insert, link", as
 
 await test("visual edits save as Markdown and reload correctly", async () => {
   await key("s", 2);
-  ok(await waitFor("document.querySelector('.toast')?.textContent.includes('Saved to content/digoxin.js')", 4000), "no save toast");
+  ok(await waitFor("document.querySelector('.toast')?.textContent.includes('Saved to content/digoxin.js')", 4000), "no save toast, got: " + await ev("document.querySelector('.toast')?.textContent"));
   const src = read("content/digoxin.js");
   ok(/## Visual typing works/.test(src), "heading not written");
   ok(src.includes("Some **important** ==fact== here"), "bold/highlight not written: " + src.slice(-500));
@@ -764,7 +807,7 @@ await test("add, rename and delete subjects and chapters; articles are moved or 
   ok(await waitFor("!document.querySelector('.delete-dialog')", 5000), "dialog should close");
   await sleep(600);
   ok(await ev("MedWiki.page('skull').subject === 'pathology' && MedWiki.page('skull').chapter === 'general'"), "article should move");
-  ok(read("content/skull.js").includes("subject: pathology"), "moved article should be saved");
+  ok(read("content/private/skull.js").includes("subject: pathology"), "moved article should be saved");
   ok(!read("content/_structure.js").includes("head-and-neck"), "chapter should be removed from the structure");
   // delete the subject and the article it now no longer holds
   await ev("MedWiki.struct.remove('anatomy', '', { deletePages: true })");
@@ -776,9 +819,9 @@ await test("add, rename and delete subjects and chapters; articles are moved or 
 await test("public hosts hide empty preset subjects and chapters; localhost shows them", async () => {
   await go(BASE + "index.html");
   ok(await ev("[...document.querySelectorAll('.tree .node-count')].some((n) => n.textContent === '0')"), "localhost should show empty chapters");
-  await ev("MedWiki.isLocal = false; MedWiki.rebuild()");
+  await ev("MedWiki.isLocal = false; MedWiki.canWrite = false; MedWiki.rebuild()");
   ok(await ev("[...document.querySelectorAll('.tree .node-count')].every((n) => n.textContent !== '0')"), "a public host should hide empty ones");
-  await ev("MedWiki.isLocal = true");
+  await ev("MedWiki.isLocal = true; MedWiki.canWrite = true; MedWiki.rebuild()");
 });
 
 console.log("\nQuick bites\n");

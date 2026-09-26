@@ -7,6 +7,7 @@ aliases: TB, Koch's disease, Mycobacterium tuberculosis infection
 tags: disease, organism, mock, must-revise
 importance: high
 status: review
+visibility: public
 edited: 2026-09-19
 ---
 ::: summary

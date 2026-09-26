@@ -101,12 +101,12 @@
 
     MW.subjects().forEach(function (s) {
       var inSubject = MW.pages.filter(function (p) { return p.subject === s.id; });
-      if (!inSubject.length && (q || !MW.isLocal)) return;
+      if (!inSubject.length && (q || !MW.canWrite)) return;
       var subjectHits = 0;
       var chapters = s.chapters.map(function (c) {
         var all = inSubject.filter(function (p) { return p.chapter === c.id; });
         var items = all.filter(hit);
-        if (!items.length && (q || all.length || !MW.isLocal)) return "";
+        if (!items.length && (q || all.length || !MW.canWrite)) return "";
         subjectHits += items.length;
         var key = s.id + "/" + c.id;
         var onPath = !!(current && current.subject === s.id && current.chapter === c.id);
@@ -114,7 +114,7 @@
         var add = '<button class="node-add" type="button" data-subject="' + s.id + '" data-chapter="' + c.id + '" title="New page in ' + MW.esc(c.title) + '" aria-label="New page in ' + MW.esc(c.title) + '">' + MW.icon("plus", 13) + "</button>";
         return node("chapter-node" + (onPath ? " on-path" : ""), key, c.title, q ? items.length + "/" + all.length : all.length, open, items.length ? items.map(leaf).join("") : '<p class="tree-none">No articles yet</p>', add);
       }).join("");
-      if (!chapters && (q || !MW.isLocal)) return;
+      if (!chapters && (q || !MW.canWrite)) return;
       if (!chapters) chapters = '<p class="tree-none">No chapters yet. Right-click to add one.</p>';
       var onSubject = !!(current && current.subject === s.id);
       var sOpen = q ? true : onSubject || (s.id in stored ? stored[s.id] : true);
@@ -244,6 +244,7 @@
     });
 
     tree.addEventListener("contextmenu", function (e) {
+      if (!MW.canWrite) return;
       var leafEl = e.target.closest(".leaf");
       if (leafEl) {
         e.preventDefault();

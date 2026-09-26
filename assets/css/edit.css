@@ -866,3 +866,8 @@
   height: 30px;
   font-size: 13px;
 }
+
+/* Readers (anyone outside the owner's network) get no writing controls. */
+html[data-role="reader"] :is(.fab, .edit-dock, [data-new], [data-newsubject], .node-add, .vis-item, .info-strip .progress-chip, .info-strip li:has(> [data-status]), .end-mark, .rail-new, .beta-hide) {
+  display: none !important;
+}

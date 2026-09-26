@@ -7,6 +7,7 @@ aliases: ACEi, ACE-I, ACE inhibitor, Angiotensin-converting enzyme inhibitors
 tags: drug, PYQ, must-revise
 importance: high
 status: revised
+visibility: public
 edited: 2026-09-18
 ---
 ::: summary

@@ -106,6 +106,26 @@ window.MedWiki = window.MedWiki || {};
   /* localhost, 127.0.0.1 (Live Server) or a file: page. The public site hides empty preset subjects and chapters. */
   MW.isLocal = location.protocol === "file:" || /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(location.hostname);
 
+  /*
+   * Who may write. Only the owner's own network can: localhost, a private LAN address (10.x, 172.16-31.x,
+   * 192.168.x), a .local or single-word host name. Anyone on a public address is a reader: no editing UI, and
+   * they see only articles marked "visibility: public". The local server enforces the same rule on every write.
+   */
+  MW.isLan = MW.isLocal || /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|169\.254\.\d+\.\d+|[^.]+\.local|[^.:]+)$/i.test(location.hostname);
+  MW.canWrite = MW.isLan; /* confirmed against the server by MW.detectServer */
+
+  function paintRole() {
+    document.documentElement.setAttribute("data-role", MW.canWrite ? "writer" : "reader");
+  }
+  paintRole();
+
+  /* True for the owner. Anyone else gets the beta notice instead of an editor. */
+  MW.requireWriter = function () {
+    if (MW.canWrite) return true;
+    if (MW.betaNotice) MW.betaNotice();
+    return false;
+  };
+
   /* Once you add, rename or delete a subject or chapter, the whole tree lives in content/_structure.js
      (or in this browser until the server writes it) and replaces the defaults in data.js. */
   MW.structureOverride = function () {
@@ -156,7 +176,7 @@ window.MedWiki = window.MedWiki || {};
 
   /* ---------- Page source format (front matter + Markdown body) ---------- */
 
-  var FIELDS = ["title", "subject", "chapter", "kind", "aliases", "tags", "importance", "status", "finished", "edited", "summary"];
+  var FIELDS = ["title", "subject", "chapter", "kind", "visibility", "aliases", "tags", "importance", "status", "finished", "edited", "summary"];
 
   function csv(s) {
     return String(s || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
@@ -191,6 +211,7 @@ window.MedWiki = window.MedWiki || {};
       subject: m.subject || "",
       chapter: m.chapter || "",
       kind: m.kind || "",
+      visibility: m.visibility === "public" ? "public" : "private",
       aliases: csv(m.aliases),
       tags: csv(m.tags),
       importance: m.importance || "medium",
@@ -234,6 +255,7 @@ window.MedWiki = window.MedWiki || {};
     Object.keys(local).forEach(function (id) {
       if (!seen[id]) pages.push(makePage(id, local[id], "local", false));
     });
+    if (!MW.canWrite) pages = pages.filter(function (p) { return p.visibility === "public"; });
     MW.pages = pages;
 
     byKey = {};
@@ -285,6 +307,7 @@ window.MedWiki = window.MedWiki || {};
   MW.server = { available: false };
 
   MW.api = function (endpoint, body) {
+    if (!MW.canWrite) return Promise.reject(new Error("Not an authorized writer"));
     return fetch("api/" + endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -299,18 +322,27 @@ window.MedWiki = window.MedWiki || {};
 
   /* Resolves quickly either way; sets MW.server.available. */
   MW.detectServer = function () {
+    if (!MW.isLan) return Promise.resolve(false); /* a public host has no writer and no server to ask */
+    function settle(available) {
+      MW.server.available = available;
+      var could = MW.canWrite;
+      MW.canWrite = MW.isLocal || available;
+      paintRole();
+      if (could !== MW.canWrite) MW.rebuild();
+      return available;
+    }
     if (!/^https?:$/.test(location.protocol)) return Promise.resolve(false);
     return fetch("api/ping")
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { MW.server.available = !!(j && j.ok); return MW.server.available; })
-      .catch(function () { return false; });
+      .then(function (j) { return settle(!!(j && j.ok && j.writer)); })
+      .catch(function () { return settle(false); });
   };
 
   /* ---------- Saving, creating, exporting ---------- */
 
   function fieldsOf(p) {
     return {
-      title: p.title, subject: p.subject, chapter: p.chapter, kind: p.kind, aliases: p.aliases,
+      title: p.title, subject: p.subject, chapter: p.chapter, kind: p.kind, visibility: p.visibility, aliases: p.aliases,
       tags: p.tags, importance: p.importance, status: p.status, finished: p.finished, edited: p.edited, summary: p.summary,
     };
   }
@@ -334,6 +366,7 @@ window.MedWiki = window.MedWiki || {};
 
   /* Local write only. changes: partial front-matter fields. opts.touch === false keeps the edited date. */
   MW.savePage = function (id, changes, body, opts) {
+    if (!MW.requireWriter()) return false;
     var p = MW.page(id);
     var f = fieldsOf(p);
     Object.keys(changes || {}).forEach(function (k) { f[k] = changes[k]; });
@@ -367,12 +400,13 @@ window.MedWiki = window.MedWiki || {};
 
   /* Resolves to the new page id. */
   MW.createPage = function (f) {
+    if (!MW.requireWriter()) return Promise.reject(new Error("Not an authorized writer"));
     var id = MW.slug(f.title);
     var n = 2;
     while (MW.page(id)) id = MW.slug(f.title) + "-" + n++;
     var local = MW.store.get("medwiki:pages", {});
     local[id] = MW.buildSource(
-      { title: f.title, subject: f.subject, chapter: f.chapter, importance: "medium", status: "draft", edited: MW.today() },
+      { title: f.title, subject: f.subject, chapter: f.chapter, visibility: "private", importance: "medium", status: "draft", edited: MW.today() },
       f.body || "## Overview\n\n"
     );
     MW.store.set("medwiki:pages", local);
@@ -393,6 +427,7 @@ window.MedWiki = window.MedWiki || {};
   };
 
   MW.saveStructure = function (st) {
+    if (!MW.requireWriter()) return Promise.reject(new Error("Not an authorized writer"));
     MW.store.set("medwiki:structure", st);
     return MW.persistStructure().then(function (written) { MW.rebuild(); return written; });
   };

@@ -7,6 +7,7 @@ aliases: RAAS, RAS, Renin-angiotensin-aldosterone system
 tags: physiology, must-revise
 importance: high
 status: draft
+visibility: public
 edited: 2026-09-19
 ---
 ::: definition

@@ -7,6 +7,7 @@ aliases: HF, CCF, Congestive cardiac failure, Congestive heart failure
 tags: disease, must-revise, mock
 importance: high
 status: draft
+visibility: public
 edited: 2026-09-19
 ---
 ::: definition

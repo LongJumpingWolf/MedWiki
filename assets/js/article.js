@@ -46,6 +46,9 @@
       "<li>" + mins + " min read</li>" +
       '<li class="progress-chip ' + (page.finished ? "is-done" : "is-wip") + '">' + (page.finished ? MW.icon("check", 13) + "Finished" : "In progress") + "</li>" +
       (page.edited ? "<li>Edited " + MW.fmtDate(page.edited) + "</li>" : "") +
+      '<li class="vis-item"><button type="button" class="vis-toggle vis-' + page.visibility + '" data-visibility title="' +
+      (page.visibility === "public" ? "Public: anyone with the link can read it. Click to make it private." : "Private: only you can see it. Click to make it public.") + '">' +
+      (page.visibility === "public" ? "Public" : "Private") + "</button></li>" +
       '<li><button type="button" class="status status-' + status + '" data-status title="Click to change revision status"><i></i>' + STATUS[status] + "</button></li>" + tagsLi + "</ul>"
     );
   }
@@ -279,13 +282,14 @@
   function enterEdit() {
     var page = MW.page(id);
     if (!page || mode === "edit") return;
+    if (!MW.requireWriter()) return;
     mode = "edit";
     previewing = false;
     MW.suspendStudyModes(true);
     var draft = MW.store.get(draftKey(), null);
     var d = draft || {
       title: page.title, subject: page.subject, chapter: page.chapter, importance: page.importance,
-      status: page.status, aliases: page.aliases.join(", "), tags: page.tags.join(", "), body: page.body,
+      status: page.status, visibility: page.visibility, aliases: page.aliases.join(", "), tags: page.tags.join(", "), body: page.body,
     };
     if (draft) MW.toast("Restored your unsaved draft.");
 
@@ -298,6 +302,7 @@
       '<label>Chapter<select id="f-chapter"></select></label>' +
       '<label>Importance<select id="f-importance">' + Object.keys(IMPORTANCE).map(function (k) { return option(k, IMPORTANCE[k], k === d.importance); }).join("") + "</select></label>" +
       '<label>Status<select id="f-status">' + STATUS_ORDER.map(function (k) { return option(k, STATUS[k], k === d.status); }).join("") + "</select></label>" +
+      '<label>Who can read it<select id="f-visibility">' + option("private", "Private (only me)", d.visibility !== "public") + option("public", "Public (anyone with the link)", d.visibility === "public") + "</select></label>" +
       '<label class="wide">Aliases and abbreviations<input id="f-aliases" placeholder="e.g. RPGN, crescentic GN" autocomplete="off" value="' + MW.esc(d.aliases) + '"></label>' +
       '<label class="wide">Tags<input id="f-tags" placeholder="e.g. drug, PYQ, must-revise" autocomplete="off" value="' + MW.esc(d.tags) + '"></label>' +
       "</div></details></header>" +
@@ -315,7 +320,7 @@
 
     var f = {
       title: root.querySelector("#f-title"), subject: root.querySelector("#f-subject"), chapter: root.querySelector("#f-chapter"),
-      importance: root.querySelector("#f-importance"), status: root.querySelector("#f-status"),
+      importance: root.querySelector("#f-importance"), status: root.querySelector("#f-status"), visibility: root.querySelector("#f-visibility"),
       aliases: root.querySelector("#f-aliases"), tags: root.querySelector("#f-tags"), body: root.querySelector("#f-body"),
     };
     f.body.value = d.body;
@@ -394,7 +399,7 @@
     if (root._pull) root._pull();
     return {
       title: f.title.value.trim(), subject: f.subject.value, chapter: f.chapter.value, importance: f.importance.value,
-      status: f.status.value, aliases: f.aliases.value, tags: f.tags.value, body: f.body.value,
+      status: f.status.value, visibility: f.visibility.value, aliases: f.aliases.value, tags: f.tags.value, body: f.body.value,
     };
   }
 
@@ -417,7 +422,7 @@
     setDockState("Saving…");
     MW.commit(id, {
       title: d.title, subject: d.subject, chapter: d.chapter, importance: d.importance,
-      status: d.status, aliases: csv(d.aliases), tags: csv(d.tags),
+      status: d.status, visibility: d.visibility === "public" ? "public" : "private", aliases: csv(d.aliases), tags: csv(d.tags),
     }, d.body).then(function (where) {
       saving = false;
       clearTimeout(root._touchTimer);
@@ -549,17 +554,31 @@
         MW.newPageDialog({ title: missing.getAttribute("data-create"), subject: cur && cur.subject, chapter: cur && cur.chapter });
         return;
       }
+      var vis = e.target.closest("[data-visibility]");
+      if (vis && mode === "read") {
+        if (!MW.requireWriter()) return;
+        var pg = MW.page(id);
+        var toPublic = pg.visibility !== "public";
+        if (toPublic && !confirm("Make this article public? Anyone with the site link can read it once you publish the site.")) return;
+        MW.commit(id, { visibility: toPublic ? "public" : "private" }, null, { touch: false }).then(function () {
+          renderRead();
+          MW.toast(toPublic ? "Now public. It goes live for others when you publish the site." : "Now private. Only you can see it.");
+        });
+        return;
+      }
       var st = e.target.closest("[data-status]");
       if (st && mode === "read") {
+        if (!MW.requireWriter()) return;
         var page = MW.page(id);
         var next = STATUS_ORDER[(STATUS_ORDER.indexOf(page.status) + 1) % STATUS_ORDER.length];
         MW.commit(id, { status: next }, null, { touch: false }).then(function () { renderRead(); });
         return;
       }
       var fin = e.target.closest("[data-finish]");
+      if (fin && mode === "read" && !MW.requireWriter()) return;
       if (fin && mode === "read") { justFinished = true; MW.setFinished(id, true); return; }
       var reopen = e.target.closest("[data-reopen]");
-      if (reopen && mode === "read") { MW.setFinished(id, false); return; }
+      if (reopen && mode === "read") { if (MW.requireWriter()) MW.setFinished(id, false); return; }
       var rc = e.target.closest(".recall-toggle");
       if (rc) { MW.toggleRecall(); return; }
       var mk = e.target.closest(".prose mark");

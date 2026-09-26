@@ -7,6 +7,7 @@ aliases: Digitalis, Cardiac glycoside, Cardiac glycosides
 tags: drug, PYQ, must-revise, mock
 importance: high
 status: draft
+visibility: public
 edited: 2026-09-19
 ---
 ::: summary

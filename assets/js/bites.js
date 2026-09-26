@@ -94,6 +94,7 @@
   /* ---------- Store ---------- */
 
   function persist(list) {
+    if (!MW.requireWriter()) return Promise.reject(new Error("Not an authorized writer"));
     cache = list;
     index = null;
     var kept = MW.store.set(KEY, list);
@@ -264,7 +265,7 @@
     },
 
     shorten: shorten,
-    open: function (opts) { openDialog(opts || {}); },
+    open: function (opts) { if (MW.requireWriter()) openDialog(opts || {}); },
   });
 
   /* ---------- Hover card ---------- */

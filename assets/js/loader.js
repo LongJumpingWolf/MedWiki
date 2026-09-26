@@ -11,4 +11,7 @@
   (MedWiki.manifest || []).forEach(function (id) {
     document.write('<script src="content/' + id + '.js' + fresh + '"><\/script>');
   });
+  /* Private articles (content/private/, never published) load only for the owner's own network. The
+     manifest below writes its own <script> tags, so the ids stay out of the public data.js. */
+  if (MedWiki.isLan) document.write('<script src="content/private/_manifest.js' + fresh + '"><\/script>');
 })();

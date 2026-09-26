@@ -80,10 +80,32 @@
     input.click();
   };
 
+  /* ---------- Beta notice (for readers who try to write) ---------- */
+
+  MW.betaNotice = function () {
+    if (document.querySelector(".beta-notice")) return;
+    var lastFocus = document.activeElement;
+    var wrap = document.createElement("div");
+    wrap.className = "overlay beta-notice";
+    wrap.innerHTML =
+      '<div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="beta-title" aria-describedby="beta-text">' +
+      '<h2 id="beta-title">MedWiki is in beta</h2>' +
+      '<p id="beta-text" class="dialog-note">You are not an authorized writer. Writing and editing are limited to the owner for now. ' +
+      'You can read every article that has been shared with you.</p>' +
+      '<div class="dialog-actions"><button type="button" class="btn btn-primary" data-close>Back to reading</button></div></div>';
+    document.body.appendChild(wrap);
+    function close() { wrap.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+    wrap.querySelector("[data-close]").addEventListener("click", close);
+    wrap.addEventListener("mousedown", function (e) { if (e.target === wrap) close(); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+    wrap.querySelector("[data-close]").focus();
+  };
+
   /* ---------- New page dialog ---------- */
 
   /* defaults: { title, subject, chapter } */
   MW.newPageDialog = function (defaults) {
+    if (!MW.requireWriter()) return;
     defaults = defaults || {};
     var subjects = MW.subjects();
     var subjectId = defaults.subject || (subjects[0] && subjects[0].id);

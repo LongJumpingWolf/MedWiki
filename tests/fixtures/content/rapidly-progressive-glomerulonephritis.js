@@ -7,6 +7,7 @@ aliases: RPGN, Crescentic glomerulonephritis, Crescentic GN
 tags: disease, must-revise
 importance: high
 status: draft
+visibility: public
 edited: 2026-09-19
 ---
 ::: definition

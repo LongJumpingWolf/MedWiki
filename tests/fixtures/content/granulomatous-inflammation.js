@@ -7,6 +7,7 @@ aliases: Granuloma, Granulomatous disease
 tags: concept, must-revise, mock
 importance: high
 status: review
+visibility: public
 edited: 2026-09-19
 ---
 ::: definition

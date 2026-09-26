@@ -7,6 +7,7 @@ aliases: ZN stain, Z-N stain, Acid-fast stain
 tags: technique, stain, mock, must-revise
 importance: high
 status: draft
+visibility: public
 edited: 2026-09-19
 ---
 ::: definition
