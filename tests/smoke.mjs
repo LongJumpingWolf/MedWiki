@@ -19,7 +19,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(HERE, "..");
 const TMP = mkdtempSync(join(tmpdir(), "medwiki-test-"));
 const SITE = join(TMP, "site");
-cpSync(SRC, SITE, { recursive: true, filter: (p) => !/[\\/](_legacy|tests|node_modules|\.git)([\\/]|$)/.test(p) });
+cpSync(SRC, SITE, { recursive: true, filter: (p) => !/[\\/](_legacy|tests|node_modules|\.git)([\\/]|$)/.test(p) && !/[\\/]content[\\/]private([\\/]|$)/.test(p) });
 
 /* The real content/ is empty; the tests run against sample articles kept in tests/fixtures. */
 const FIXTURES = join(SRC, "tests", "fixtures", "content");
@@ -460,6 +460,19 @@ await test("privacy: the server refuses writes and private files from non-LAN ho
   ok((await req("/api/ping", "medwiki.example.com", "POST")) === 403, "a public host name must be refused");
   ok((await req("/api/ping", "8.8.8.8", "POST")) === 403, "a public address must be refused");
   ok((await req("/content/private/_manifest.js", "medwiki.example.com")) === 403, "private files must not be served to public hosts");
+});
+
+await test("print view: many images load a few at a time and all of them show", async () => {
+  const NL = String.fromCharCode(10);
+  const body = Array.from({ length: 30 }, (_, i) => `![Spot ${i}](assets/icons/apple-touch-icon.png?n=${i})`).join(NL + NL);
+  await go(BASE + "index.html");
+  await ev(`MedWiki.createPage({ title: 'Print Many', subject: 'pathology', chapter: 'general', body: ${JSON.stringify(body)} })`);
+  await sleep(600);
+  await go(BASE + "print.html?a=print-many");
+  ok(await waitFor("document.querySelectorAll('#sheet img').length === 30", 4000), "images not rendered in the print sheet");
+  ok(await waitFor("[...document.querySelectorAll('#sheet img')].every(i => i.complete && i.naturalWidth > 0)", 8000), "every image should finish loading");
+  ok(await ev("!document.getElementById('jr-note').textContent.startsWith('Loading images')"), "loading note should clear once done");
+  await ev("MedWiki.deleteFile('print-many')");
 });
 
 console.log("\nVisual editor\n");

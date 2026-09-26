@@ -91,13 +91,72 @@
       ' @bottom-right { content: counter(page); font: 8pt "DM Sans", sans-serif; color: #666; } }';
   }
 
+  /*
+   * Fetching every image at once (a long atlas has hundreds) makes the image host throttle and drop most of
+   * them, so they show as broken. Load them a few at a time, retry the ones that fail, and let print() wait
+   * for the queue instead of guessing.
+   */
+  var IMG_POOL = 6;
+  var IMG_TRIES = 4;
+  var imgQueue = { total: 0, done: 0, waiters: [] };
+
+  function imgProgress() {
+    var note = document.getElementById("jr-note");
+    if (imgQueue.done < imgQueue.total && note) note.textContent = "Loading images " + imgQueue.done + " of " + imgQueue.total + "…";
+    if (imgQueue.done >= imgQueue.total) {
+      imgQueue.waiters.splice(0).forEach(function (fn) { fn(); });
+      if (note && imgQueue.total) note.textContent = "Tip: turn off “Headers and footers” in the print dialog and keep scale at 100%.";
+    }
+  }
+
+  function queueImages() {
+    var imgs = [].slice.call(sheet.querySelectorAll("img"));
+    var todo = [];
+    imgQueue = { total: 0, done: 0, waiters: [] };
+    var q = imgQueue;
+    imgs.forEach(function (img) {
+      var src = img.getAttribute("src");
+      if (!src || img.complete && img.naturalWidth) return;
+      img.removeAttribute("loading");
+      img.referrerPolicy = "no-referrer";
+      img.removeAttribute("src");
+      todo.push({ img: img, src: src, tries: 0 });
+    });
+    q.total = todo.length;
+    var active = 0;
+    function next() {
+      if (q !== imgQueue) return;
+      while (active < IMG_POOL && todo.length) start(todo.shift());
+      imgProgress();
+    }
+    function start(job) {
+      active++;
+      var img = job.img;
+      function settle(ok) {
+        img.onload = img.onerror = null;
+        if (!ok && job.tries < IMG_TRIES) {
+          job.tries++;
+          setTimeout(function () { active--; todo.push(job); next(); }, 500 * job.tries);
+          return;
+        }
+        active--;
+        q.done++;
+        next();
+      }
+      img.onload = function () { settle(true); };
+      img.onerror = function () { settle(false); };
+      img.src = job.tries ? job.src + (job.src.indexOf("?") === -1 ? "?" : "&") + "r=" + job.tries : job.src;
+    }
+    next();
+  }
+
   function renderSheet() {
     var list = pages();
     var html = "";
     if (list.length > 1 && opts.contents) html += contentsHtml(list);
     html += list.map(articleHtml).join("");
     sheet.innerHTML = html;
-    sheet.querySelectorAll("img").forEach(function (img) { img.loading = "eager"; });
+    queueImages();
     var n = document.getElementById("jr-count");
     if (n) n.textContent = list.length + (list.length === 1 ? " article" : " articles");
   }
@@ -152,12 +211,12 @@
 
   function print() {
     var note = document.getElementById("jr-note");
-    var imgs = [].slice.call(sheet.querySelectorAll("img")).filter(function (i) { return !i.complete; });
-    var wait = Promise.all(imgs.map(function (i) {
-      return new Promise(function (res) { i.addEventListener("load", res); i.addEventListener("error", res); });
-    }));
-    if (imgs.length && note) note.textContent = "Loading " + imgs.length + (imgs.length === 1 ? " image" : " images") + " before printing…";
-    Promise.race([wait, new Promise(function (r) { setTimeout(r, 15000); })]).then(function () {
+    var wait = new Promise(function (res) {
+      if (imgQueue.done >= imgQueue.total) return res();
+      imgQueue.waiters.push(res);
+      imgProgress();
+    });
+    Promise.race([wait, new Promise(function (r) { setTimeout(r, 90000); })]).then(function () {
       return document.fonts && document.fonts.ready;
     }).then(function () {
       if (note) note.textContent = "Tip: turn off “Headers and footers” in the print dialog and keep scale at 100%.";
