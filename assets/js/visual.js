@@ -32,6 +32,7 @@
       { k: "image", label: "Image", hint: "Upload, or just paste one", group: "Insert", cmd: "image", alt: "img picture photo figure" },
       { k: "flowchart", label: "Flowchart (horizontal)", hint: "A → B → C", group: "Insert", cmd: "flow", alt: "flow chart diagram arrows" },
       { k: "flowchart-vertical", label: "Flowchart (vertical)", hint: "top to bottom", group: "Insert", cmd: "flowv", alt: "flow chart diagram down" },
+      { k: "html", label: "Raw HTML / code", hint: "Embedded exactly as written", group: "Insert", cmd: "html", alt: "html code embed script raw import" },
       { k: "quote", label: "Quote", hint: "", group: "Insert", cmd: "quote", alt: "blockquote" },
       { k: "divider", label: "Divider", hint: "A horizontal line", group: "Insert", cmd: "hr", alt: "hr line rule separator" },
       { k: "link", label: "Link to a page", hint: "Ctrl+K", group: "Insert", cmd: "link", alt: "wiki page" },
@@ -178,12 +179,12 @@
     }
 
     /* Chrome can leave a list or paragraph nested inside a <p> (e.g. after "bulleted list" on an empty line). Unwrap it. */
-    var NESTED = "p > ul, p > ol, p > p, p > h2, p > h3, p > h4, p > table, p > figure, p > aside, p > blockquote, p > .table-wrap, p > .flow-src";
+    var NESTED = "p > ul, p > ol, p > p, p > h2, p > h3, p > h4, p > table, p > figure, p > aside, p > blockquote, p > .table-wrap, p > .flow-src, p > .html-src";
     function unwrapNested() {
       if (!surface.querySelector(NESTED)) return;
       var sel = saveSel();
       [].slice.call(surface.querySelectorAll("p")).forEach(function (p) {
-        if (!p.parentNode || !p.querySelector(":scope > ul, :scope > ol, :scope > p, :scope > h2, :scope > h3, :scope > h4, :scope > table, :scope > figure, :scope > aside, :scope > blockquote, :scope > .table-wrap, :scope > .flow-src")) return;
+        if (!p.parentNode || !p.querySelector(":scope > ul, :scope > ol, :scope > p, :scope > h2, :scope > h3, :scope > h4, :scope > table, :scope > figure, :scope > aside, :scope > blockquote, :scope > .table-wrap, :scope > .flow-src, :scope > .html-src")) return;
         while (p.firstChild) p.parentNode.insertBefore(p.firstChild, p);
         p.remove();
       });
@@ -203,7 +204,7 @@
     }
 
     function updateEmpty() {
-      var empty = !surface.textContent.trim() && !surface.querySelector("figure, table, .block, .flow-src, hr, li") && surface.children.length <= 1;
+      var empty = !surface.textContent.trim() && !surface.querySelector("figure, table, .block, .flow-src, .html-src, hr, li") && surface.children.length <= 1;
       surface.classList.toggle("is-empty", empty);
     }
 
@@ -370,6 +371,7 @@
         case "image": return pickImage();
         case "flow": insertBlocks(nodesFromMd("::: flow\nStep 1 -> Step 2 -> Step 3\n:::"), "flow"); return;
         case "flowv": insertBlocks(nodesFromMd("::: flow vertical\nStep 1 -> Step 2 -> Step 3\n:::"), "flow"); return;
+        case "html": insertBlocks(nodesFromMd("::: html\n<div>\n  \n</div>\n:::"), "after"); return;
         case "quote": insertBlocks([el("<blockquote><p><br></p></blockquote>")], "first"); return;
         case "hr": insertBlocks([document.createElement("hr")], "after"); return;
       }
@@ -840,7 +842,7 @@
     }
 
     function blockAction(btn) {
-      var block = btn.closest(".block, .flow-src");
+      var block = btn.closest(".block, .flow-src, .html-src");
       if (!block) return;
       var act = btn.getAttribute("data-act");
       if (/^(dir-|al-)/.test(act)) {

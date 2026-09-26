@@ -25,6 +25,7 @@
     { k: "table", label: "Table", hint: "Rows and columns", t: "| Column 1 | Column 2 | Column 3 |\n|---|---|---|\n| $| | | |\n| | | |\n" },
     { k: "image", label: "Image", hint: "Choose a file (or just paste one)", run: "image" },
     { k: "flowchart", label: "Flowchart", hint: "Step -> Step -> Step", t: "::: flow\nStep 1 -> Step 2 -> Step 3\n:::\n" },
+    { k: "html", label: "Raw HTML / code", hint: "Embedded exactly as written", t: "::: html\n$|\n:::\n" },
     { k: "highlight", label: "Highlight", hint: "==high-yield text==", t: "==$|==", inline: true },
     { k: "link", label: "Link to page", hint: "[[Page title]]", t: "[[$|]]", inline: true, then: "wiki" },
     { k: "divider", label: "Divider", hint: "Horizontal rule", t: "---\n" },
@@ -86,6 +87,10 @@
         cls += " in ln-close";
         tone = toneColor(stack.pop());
         inner = '<span class="mk">' + MW.esc(line) + "</span>";
+      } else if (stack[stack.length - 1] === "html") {
+        cls += " in cd-line";
+        tone = toneColor("html");
+        inner = MW.esc(line);
       } else {
         if (stack.length) { cls += " in"; tone = toneColor(stack[stack.length - 1]); }
         if ((m = /^(#{1,4})(\s+)(.*)$/.exec(line))) {

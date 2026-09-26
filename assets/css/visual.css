@@ -236,6 +236,7 @@
 
 .block:hover > .block-head .block-ctl,
 .flow-src:hover > .block-head .block-ctl,
+.html-src:hover > .block-head .block-ctl,
 .block:focus-within > .block-head .block-ctl {
   opacity: 1;
 }
@@ -296,6 +297,44 @@
 .flow-lines > * {
   margin: 0;
   padding: 2px 0;
+}
+
+.html-src {
+  margin: 0.9em 0;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.html-src .block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px dashed var(--border);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.html-src .block-label {
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.html-src .block-hint {
+  color: var(--muted-foreground);
+}
+
+.html-src .html-code {
+  margin: 0;
+  padding: 8px 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+  color: var(--muted-foreground);
 }
 
 /* ---------- Menus ---------- */

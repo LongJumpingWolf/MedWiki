@@ -391,6 +391,19 @@ await test("delete removes the file and manifest entry", async () => {
   ok(!read("assets/js/data.js").includes('"smoke-test-page"'));
 });
 
+await test("create page dialog: pasting HTML/code creates the page pre-filled, no default overview text", async () => {
+  await go(BASE + "index.html");
+  await ev("MedWiki.newPageDialog({title:'Smoke Raw Page', subject:'pathology'})");
+  await ev("(()=>{const f=document.querySelector('.dialog'); f.elements.rawToggle.click(); f.elements.rawBody.value='<div class=\"widget\"><p>Imported as-is</p></div>'; f.querySelector('[type=submit]').click()})()");
+  ok(await waitFor("!location.search.includes('edit=1') && location.search.includes('a=smoke-raw-page')", 5000), "did not navigate to the new page");
+  ok(existsSync(file("content/smoke-raw-page.js")), "page file missing");
+  const src = read("content/smoke-raw-page.js");
+  ok(src.includes("::: html") && src.includes("Imported as-is"), "raw body not saved verbatim");
+  ok(!src.includes("## Overview"), "should not fall back to the default overview body");
+  ok(await waitFor("document.querySelector('.prose').innerHTML.includes('Imported as-is')", 4000), "raw HTML was not rendered on the page");
+  await ev("MedWiki.deleteFile('smoke-raw-page')");
+});
+
 console.log("\nVisual editor\n");
 
 await test("every article round-trips: Markdown → editor DOM → Markdown renders identically", async () => {
@@ -620,6 +633,32 @@ await test("flowchart alignment: center/right classes, round-trip, and the edito
   ok((await ev(`MedWiki.md.render("::: flow"+String.fromCharCode(10)+"A -> B"+String.fromCharCode(10)+":::").html`)).includes('class="flow"'), "default should stay left");
   const w = await ev(`(()=>{ const d=document.createElement('div'); d.className='prose'; d.innerHTML=MedWiki.md.render("::: flow"+String.fromCharCode(10)+"A -> B"+String.fromCharCode(10)+":::").html; document.body.appendChild(d); const a=d.querySelector('.flow-arrow').getBoundingClientRect().width; d.remove(); return a; })()`);
   ok(w >= 24, "the drawn arrow should be a clear connector (>= 24px wide), got " + w);
+});
+
+await test("raw HTML block: passes through untouched, round-trips via data-src, and survives special characters", async () => {
+  await go(BASE + "article.html?a=digoxin");
+  const NL = String.fromCharCode(10);
+  const raw = '<div class="widget" data-x="a &amp; b"><script>var x = `t${1}`;</script><p>Hi & bye</p></div>';
+  const md = "::: html" + NL + raw + NL + ":::" + NL;
+  const html = await ev(`MedWiki.md.render(${JSON.stringify(md)}).html`);
+  ok(html === raw, "view mode should inject the HTML exactly as written, got " + JSON.stringify(html));
+  const back = await ev(`(()=>{ const d=document.createElement('div'); d.innerHTML=MedWiki.md.render(${JSON.stringify(md)},{edit:true}).html; return MedWiki.md.fromDom(d); })()`);
+  ok(back === md, "raw HTML did not round-trip: " + JSON.stringify(back));
+  const plain = await ev(`MedWiki.md.plain(${JSON.stringify(md + "Some real prose.")})`);
+  ok(!plain.includes("script") && plain.includes("Some real prose"), "raw markup should be excluded from the plain-text/search index, got " + JSON.stringify(plain));
+
+  await ev("localStorage.removeItem('medwiki:editorMode')");
+  await ev("document.querySelector('.fab').click()");
+  await waitFor("!!document.querySelector('.ve-surface')");
+  await ev(`(()=>{ const s=document.querySelector('.ve-surface'); s.focus(); const p=document.createElement('p'); p.innerHTML='<br>'; s.appendChild(p); const r=document.createRange(); r.selectNodeContents(p); const g=getSelection(); g.removeAllRanges(); g.addRange(r); })()`);
+  await ev("document.querySelector('[data-cmd=insert]').click()");
+  await ev("[...document.querySelectorAll('.ve-menu-item')].find(b=>b.innerText.includes('Raw HTML')).click()");
+  ok(await waitFor("!!document.querySelector('.ve-surface .html-src')", 1500), "raw HTML block not inserted");
+  const LASTHTML = "[...document.querySelectorAll('.ve-surface .html-src')].pop()";
+  ok(await ev(`${LASTHTML}.getAttribute('contenteditable') === 'false'`), "the block should be non-editable in Visual mode");
+  await ev(`${LASTHTML}.querySelector('[data-act=del]').click()`);
+  ok(await ev(`!document.querySelector('.ve-surface .html-src')`), "delete control should remove the block");
+  await ev("document.querySelector('[data-cancel]').click()");
 });
 
 await test("~ inserts things: ~table on an empty line, ~quote inside a sentence, ~image alias, plain '~5 mg' is left alone", async () => {

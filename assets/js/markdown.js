@@ -225,6 +225,23 @@
     return chart;
   }
 
+  /* "::: html" passes its contents through untouched — real markup, not the Markdown DSL.
+     In edit mode it shows as a read-only code block (Source mode is where it's actually edited); in
+     the published article it is injected exactly as written. The raw text lives in data-src so no
+     amount of contenteditable churn around it can ever mangle it. */
+  function renderHtml(lines, ctx) {
+    var raw = lines.join("\n");
+    if (ctx && ctx.edit) {
+      return (
+        '<div class="html-src" data-type="html" contenteditable="false" data-src="' + esc(raw) + '">' +
+        '<div class="block-head"><span class="block-label">Raw HTML</span>' +
+        '<span class="block-hint">edited in Source mode</span>' + BLOCK_CTL + "</div>" +
+        "<pre class=\"html-code\">" + esc(raw) + "</pre></div>"
+      );
+    }
+    return raw;
+  }
+
   var BLOCK_CTL =
     '<span class="block-ctl"><button type="button" data-act="up" title="Move up" aria-label="Move up">\u2191</button>' +
     '<button type="button" data-act="down" title="Move down" aria-label="Move down">\u2193</button>' +
@@ -333,6 +350,7 @@
 
   function renderBlock(type, title, inner, ctx) {
     if (type === "flow") return renderFlow(inner, ctx, title);
+    if (type === "html") return renderHtml(inner, ctx);
     if (type === "pyq") ctx.pyq++;
     var bt = MW.blockTypes.get(type);
     var label = bt ? bt.label : type.charAt(0).toUpperCase() + type.slice(1);
@@ -364,11 +382,21 @@
       return { html: html, headings: ctx.headings, pyq: ctx.pyq, words: MW.md.plain(body).split(/\s+/).filter(Boolean).length };
     },
 
-    /* Text for search and word counts. */
+    /* Text for search and word counts. Raw HTML blocks are markup, not prose, so they're skipped entirely. */
     plain: function (body) {
+      var htmlDepth = 0;
       return body
         .split("\n")
-        .filter(function (l) { return !RE.fence.test(l) && !RE.close.test(l) && !RE.tableSep.test(l); })
+        .filter(function (l) {
+          if (htmlDepth) {
+            if (RE.close.test(l) && --htmlDepth === 0) return false;
+            if (RE.open.test(l) && RE.open.exec(l)[1].toLowerCase() === "html") htmlDepth++;
+            return false;
+          }
+          var m = RE.open.exec(l);
+          if (m && m[1].toLowerCase() === "html") { htmlDepth = 1; return false; }
+          return !RE.fence.test(l) && !RE.close.test(l) && !RE.tableSep.test(l);
+        })
         .map(function (l) {
           var m = RE.open.exec(l);
           if (m) l = m[2];

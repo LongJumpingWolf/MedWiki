@@ -103,6 +103,9 @@
       "</select></label>" +
       '<label>Chapter<select name="chapter"></select></label></div>' +
       '<label class="new-chapter" hidden>New chapter name<input name="newChapter" autocomplete="off"></label>' +
+      '<label class="np-raw-toggle"><input type="checkbox" name="rawToggle"> Paste HTML or code instead of writing</label>' +
+      '<label class="np-raw" hidden>HTML / code<textarea name="rawBody" rows="8" spellcheck="false" placeholder="Paste the contents of an HTML file, or any markup, and it goes in exactly as written."></textarea>' +
+      '<input type="file" name="rawFile" accept=".html,.htm,text/html,text/plain"></label>' +
       '<div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button>' +
       '<button type="submit" class="btn btn-primary">Create and edit</button></div></form>';
     document.body.appendChild(wrap);
@@ -111,6 +114,20 @@
     var subjectSel = form.elements.subject;
     var chapterSel = form.elements.chapter;
     var newWrap = form.querySelector(".new-chapter");
+    var rawWrap = form.querySelector(".np-raw");
+    var rawToggle = form.elements.rawToggle;
+    var rawBody = form.elements.rawBody;
+    var rawFile = form.elements.rawFile;
+
+    rawToggle.addEventListener("change", function () {
+      rawWrap.hidden = !rawToggle.checked;
+      if (rawToggle.checked) rawBody.focus();
+    });
+    rawFile.addEventListener("change", function () {
+      var file = rawFile.files[0];
+      if (!file) return;
+      file.text().then(function (text) { rawBody.value = text; rawBody.focus(); });
+    });
 
     function fillChapters(selected) {
       var s = MW.subject(subjectSel.value);
@@ -154,12 +171,14 @@
         location.href = MW.pageUrl(existing.id);
         return;
       }
+      var raw = rawToggle.checked ? rawBody.value.replace(/\s+$/, "") : "";
+      var body = raw ? "::: html\n" + raw + "\n:::\n" : null;
       var submit = form.querySelector("[type=submit]");
       submit.disabled = true;
       submit.textContent = "Creating…";
       MW.persistChapters()
-        .then(function () { return MW.createPage({ title: title, subject: subjectSel.value, chapter: chapter }); })
-        .then(function (id) { location.href = MW.pageUrl(id) + "&edit=1"; });
+        .then(function () { return MW.createPage({ title: title, subject: subjectSel.value, chapter: chapter, body: body }); })
+        .then(function (id) { location.href = raw ? MW.pageUrl(id) : MW.pageUrl(id) + "&edit=1"; });
     });
 
     form.elements.title.focus();

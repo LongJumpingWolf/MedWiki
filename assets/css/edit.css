@@ -151,6 +151,47 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent);
 }
 
+.np-raw-toggle {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 7px !important;
+  color: var(--foreground) !important;
+}
+
+.np-raw-toggle input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.np-raw textarea {
+  height: 160px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--foreground);
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+.np-raw textarea:focus {
+  border-color: var(--primary);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.np-raw input[type="file"] {
+  height: auto;
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
 .editor-wrap {
   margin-top: 16px;
 }

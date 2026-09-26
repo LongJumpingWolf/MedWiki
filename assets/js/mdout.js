@@ -223,6 +223,10 @@
     return "::: " + type + (title ? " " + title : "") + "\n" + (inner ? inner + "\n" : "") + ":::";
   }
 
+  function htmlOut(el) {
+    return "::: html\n" + (el.getAttribute("data-src") || "").replace(/\n?$/, "\n") + ":::";
+  }
+
   function flowOut(el) {
     var lines = [];
     var box = el.querySelector(".flow-lines");
@@ -255,6 +259,7 @@
       var t;
       if (tag === "ASIDE" && cls(n, "block")) out.push(blockOut(n));
       else if (cls(n, "flow-src")) out.push(flowOut(n));
+      else if (cls(n, "html-src")) out.push(htmlOut(n));
       else if (tag === "FIGURE") { t = figureOut(n); if (t) out.push(t); }
       else if (/^H[1-6]$/.test(tag)) {
         var level = Math.max(2, Math.min(4, Number(tag[1])));

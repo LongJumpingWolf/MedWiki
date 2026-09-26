@@ -373,7 +373,7 @@ window.MedWiki = window.MedWiki || {};
     var local = MW.store.get("medwiki:pages", {});
     local[id] = MW.buildSource(
       { title: f.title, subject: f.subject, chapter: f.chapter, importance: "medium", status: "draft", edited: MW.today() },
-      "## Overview\n\n"
+      f.body || "## Overview\n\n"
     );
     MW.store.set("medwiki:pages", local);
     MW.rebuild();
