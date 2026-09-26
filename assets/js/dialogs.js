@@ -172,13 +172,22 @@
         return;
       }
       var raw = rawToggle.checked ? rawBody.value.replace(/\s+$/, "") : "";
-      var body = raw ? "::: html\n" + raw + "\n:::\n" : null;
       var submit = form.querySelector("[type=submit]");
       submit.disabled = true;
       submit.textContent = "Creating…";
-      MW.persistChapters()
-        .then(function () { return MW.createPage({ title: title, subject: subjectSel.value, chapter: chapter, body: body }); })
-        .then(function (id) { location.href = raw ? MW.pageUrl(id) : MW.pageUrl(id) + "&edit=1"; });
+      (raw ? MW.images.importHtml(raw) : Promise.resolve({ html: "", count: 0 }))
+        .then(function (imported) {
+          if (imported.count || imported.reused) {
+            var bits = [];
+            if (imported.count) bits.push(imported.count + (imported.count === 1 ? " embedded image queued for upload" : " embedded images queued for upload"));
+            if (imported.reused) bits.push(imported.reused + (imported.reused === 1 ? " already uploaded, reused" : " already uploaded, reused"));
+            MW.toast(bits.join("; ") + "." + (imported.count && !MW.images.hasKey() ? " Add an ImgBB key in Settings to send them." : ""));
+          }
+          var body = raw ? "::: html\n" + imported.html + "\n:::\n" : null;
+          return MW.persistChapters()
+            .then(function () { return MW.createPage({ title: title, subject: subjectSel.value, chapter: chapter, body: body }); })
+            .then(function (id) { location.href = raw ? MW.pageUrl(id) : MW.pageUrl(id) + "&edit=1"; });
+        });
     });
 
     form.elements.title.focus();

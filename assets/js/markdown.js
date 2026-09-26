@@ -239,7 +239,12 @@
         "<pre class=\"html-code\">" + esc(raw) + "</pre></div>"
       );
     }
-    return raw;
+    /* img:<key> tokens (from MW.images.importHtml) resolve to the current URL: hosted once
+       uploaded, a local blob URL while still pending. */
+    return raw.replace(/img:([a-z0-9]+)\b/g, function (m, key) {
+      var url = MW.images && MW.images.get(key);
+      return url || m;
+    });
   }
 
   var BLOCK_CTL =

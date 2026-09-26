@@ -404,6 +404,21 @@ await test("create page dialog: pasting HTML/code creates the page pre-filled, n
   await ev("MedWiki.deleteFile('smoke-raw-page')");
 });
 
+await test("importing HTML: embedded images are queued (and deduped), already-hosted URLs are left alone", async () => {
+  await ev("localStorage.removeItem('medwiki:imgHashes')");
+  await go(BASE + "index.html");
+  const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AZAAAAAAABAAAAAAAABAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAA";
+  const html = await ev(`MedWiki.images.importHtml('<img src="data:image/png;base64,${PNG}"><img src="https://i.ibb.co/abc123/existing.png"><img src="data:image/png;base64,${PNG}">').then(r => JSON.stringify(r))`);
+  const result = JSON.parse(html);
+  ok(result.count === 1, "the one distinct embedded image should be queued once, got " + result.count);
+  ok(result.reused === 1, "the repeated embedded image should be reused, not queued again, got " + result.reused);
+  ok(result.html.includes('src="https://i.ibb.co/abc123/existing.png"'), "an already-hosted URL must be left untouched");
+  ok(!result.html.includes("base64"), "every data: image should have been rewritten to an img: token");
+  ok((result.html.match(/img:[a-z0-9]+/g) || []).length === 2, "both occurrences should carry the same img: token");
+  const second = await ev(`MedWiki.images.importHtml('<img src="data:image/png;base64,${PNG}">').then(r => JSON.stringify(r))`);
+  ok(JSON.parse(second).reused === 1, "the same image pasted in a later import should also be reused, not re-uploaded");
+});
+
 console.log("\nVisual editor\n");
 
 await test("every article round-trips: Markdown → editor DOM → Markdown renders identically", async () => {

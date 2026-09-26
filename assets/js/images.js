@@ -10,6 +10,7 @@
  *   MW.images.src(key)       → URL to display (hosted if uploaded, else a local blob URL)
  *   MW.images.state(key)     → "done" | "pending" | "uploading" | "failed" | "missing"
  *   MW.images.normalize(md)  → Markdown with uploaded img:<key> refs swapped for hosted URLs
+ *   MW.images.importHtml(html) → Promise<{html, count, reused}>, queues embedded data: images
  *   MW.images.settingsDialog()
  */
 (function () {
@@ -123,6 +124,20 @@
 
   function dataToBlob(data) {
     return fetch(data).then(function (r) { return r.blob(); });
+  }
+
+  /* Cheap non-crypto hash of a base64 payload, so the same embedded image pasted twice
+     (in one HTML import or across several) is recognised as the same image. */
+  function hashStr(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + s.length.toString(36);
+  }
+
+  function contentMap() { return MW.store.get("medwiki:imgHashes", {}); }
+  function rememberContent(map, hash, key) {
+    map[hash] = key;
+    MW.store.set("medwiki:imgHashes", map);
   }
 
   function blobToData(blob) {
@@ -296,15 +311,19 @@
     return put(rec).then(function () { return rewritePages(rec.id, rec.url); });
   }
 
-  /* Swap img:<key> for the hosted URL in every page that uses it (and write it out). */
+  /* Swap img:<key> for the hosted URL in every page that uses it (and write it out).
+     Markdown images store it as (img:<key>); a raw HTML block (::: html) instead has it
+     bare, e.g. src="img:<key>", so both forms are rewritten. */
   function rewritePages(key, url) {
-    var token = "(img:" + key + ")";
-    var ids = MW.pages.filter(function (p) { return p.body.indexOf(token) !== -1; }).map(function (p) { return p.id; });
+    var paren = "(img:" + key + ")";
+    var bareRe = new RegExp("img:" + key + "(?![a-z0-9])", "g");
+    var ids = MW.pages.filter(function (p) { return p.body.indexOf("img:" + key) !== -1; }).map(function (p) { return p.id; });
     return ids.reduce(function (chain, id) {
       return chain.then(function () {
         var p = MW.page(id);
         if (!p) return null;
-        MW.savePage(id, {}, p.body.split(token).join("(" + url + ")"), { touch: false });
+        var body = p.body.split(paren).join("(" + url + ")").replace(bareRe, url);
+        MW.savePage(id, {}, body, { touch: false });
         return MW.server.available ? MW.persist(id).catch(function () {}) : null;
       });
     }, Promise.resolve());
@@ -425,6 +444,46 @@
       }, Promise.resolve()).then(function () { return out; });
     },
 
+    /* Pulls every embedded data: image out of pasted/imported HTML (e.g. a saved .html file),
+       queues each new one through the normal rate-limited upload pipeline, and rewrites its
+       src to img:<key> so the raw HTML stores a small token instead of a giant base64 blob.
+       An <img> that already points at a real URL (e.g. already hosted on ImgBB) is never
+       touched — only embedded data: images are candidates at all. And a data: image whose
+       exact bytes were uploaded before (this paste or an earlier one, on this device) is
+       recognised by content and reuses that upload instead of sending it again.
+       → Promise<{ html, count, reused }> */
+    importHtml: function (html) {
+      var re = /(<img\b[^>]*\bsrc\s*=\s*)(["'])data:image\/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/=]+)\2/gi;
+      var matches = [];
+      var m;
+      while ((m = re.exec(html))) matches.push(m);
+      if (!matches.length) return Promise.resolve({ html: html, count: 0, reused: 0 });
+      var count = 0;
+      var reused = 0;
+      var seen = {}; // content hash → "img:<key>", for the same image appearing more than once in this paste
+      var known = contentMap(); // content hash → key, from previous imports on this device
+      return matches.reduce(function (chain, m) {
+        return chain.then(function (text) {
+          if (text.indexOf(m[0]) === -1) { reused++; return text; } // an identical tag, already rewritten
+          var hash = hashStr(m[4]);
+          var existingKey = known[hash];
+          var token = seen[hash] || (existingKey && records[existingKey] ? "img:" + existingKey : null);
+          if (token) {
+            reused++;
+            return text.split(m[0]).join(m[1] + m[2] + token + m[2]);
+          }
+          return dataToBlob("data:image/" + m[3] + ";base64," + m[4])
+            .then(function (blob) { return API.add(blob); })
+            .then(function (key) {
+              seen[hash] = key;
+              rememberContent(known, hash, key.slice(4));
+              count++;
+              return text.split(m[0]).join(m[1] + m[2] + key + m[2]);
+            }, function () { return text; });
+        });
+      }, Promise.resolve(html)).then(function (out) { return { html: out, count: count, reused: reused }; });
+    },
+
     /* Restores an image from a backup as a waiting upload. */
     restore: function (key, dataUrl) {
       if (records[key]) return Promise.resolve();
@@ -467,6 +526,10 @@
       if (!r) return;
       delete records[key];
       remove(key);
+      var map = contentMap();
+      var changed = false;
+      Object.keys(map).forEach(function (h) { if (map[h] === key) { delete map[h]; changed = true; } });
+      if (changed) MW.store.set("medwiki:imgHashes", map);
       emit();
     },
   };
