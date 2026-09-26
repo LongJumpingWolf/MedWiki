@@ -993,3 +993,51 @@
 .info-strip .progress-chip.is-wip {
   color: var(--ink-soft);
 }
+
+/* ---------- Spotter layout (front matter: layout: spotter) ----------
+   One card per image, generous space between cards, and the caption set apart underneath so it is
+   never unclear which picture it belongs to. In revision mode the captions are hidden until clicked. */
+.prose.spotter figure {
+  margin: 0 auto 3.4em;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card, transparent);
+}
+
+.prose.spotter figure img {
+  display: block;
+  margin: 0 auto;
+}
+
+.prose.spotter figcaption {
+  position: relative;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  line-height: 1.5;
+}
+
+:root[data-mode="revision"] .prose.spotter figcaption:not(.revealed) {
+  min-height: 3.2em;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  color: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-mode="revision"] .prose.spotter figcaption:not(.revealed)::after {
+  content: "Click to reveal the caption";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+:root[data-mode="revision"] .prose.spotter figcaption.revealed {
+  cursor: pointer;
+}

@@ -153,7 +153,7 @@
       '<button type="button" class="banner-btn" data-show-all>Show everything</button>' +
       '<button type="button" class="recall-toggle" data-recall aria-pressed="' + MW.isRecall() + '">' + (MW.isRecall() ? "Recall on: click a highlight to reveal" : "Test myself") + "</button></div>" +
       (page.body.trim()
-        ? '<div class="prose">' + r.html + "</div>"
+        ? '<div class="prose' + (page.layout === "spotter" ? " spotter" : "") + '">' + r.html + "</div>"
         : '<p class="empty-page">This page is empty. Press <kbd>E</kbd> to start writing.</p>') +
       endMark(page, justFinished) +
       (back.length
@@ -581,6 +581,8 @@
       if (reopen && mode === "read") { if (MW.requireWriter()) MW.setFinished(id, false); return; }
       var rc = e.target.closest(".recall-toggle");
       if (rc) { MW.toggleRecall(); return; }
+      var fc = e.target.closest(".prose.spotter figcaption");
+      if (fc && MW.isRevision()) { fc.classList.toggle("revealed"); return; }
       var mk = e.target.closest(".prose mark");
       if (mk && MW.isRevision() && MW.isRecall()) { mk.classList.toggle("revealed"); return; }
       var bm = e.target.closest("[data-bookmark]");
@@ -617,7 +619,7 @@
           rb.setAttribute("aria-pressed", String(MW.isRecall()));
           rb.textContent = MW.isRecall() ? "Recall on: click a highlight to reveal" : "Test myself";
         }
-        root.querySelectorAll(".prose mark.revealed").forEach(function (m) { m.classList.remove("revealed"); });
+        root.querySelectorAll(".prose mark.revealed, .prose.spotter figcaption.revealed").forEach(function (m) { m.classList.remove("revealed"); });
       }
       /* Wikilink targets may change (e.g. a page was created) — refresh read view. */
       if (!kind && mode === "read" && MW.page(id)) renderRead();

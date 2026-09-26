@@ -475,6 +475,28 @@ await test("print view: many images load a few at a time and all of them show", 
   await ev("MedWiki.deleteFile('print-many')");
 });
 
+await test("spotter layout: spaced cards, and in revision mode captions are hidden until clicked", async () => {
+  const NL = String.fromCharCode(10);
+  await go(BASE + "index.html");
+  const body = "![Spot 1 caption one](assets/icons/apple-touch-icon.png?a=1)" + NL + NL + "![Spot 2 caption two](assets/icons/apple-touch-icon.png?a=2)";
+  await ev(`MedWiki.createPage({ title: 'Spot Layout', subject: 'pathology', chapter: 'general', body: ${JSON.stringify(body)} })`);
+  await ev("MedWiki.commit('spot-layout', { layout: 'spotter' }, null, { touch: false })");
+  await sleep(700);
+  await ev("MedWiki.store.set('medwiki:revision', false)");
+  await go(BASE + "article.html?a=spot-layout");
+  ok(await ev("!!document.querySelector('.prose.spotter')"), "spotter class missing");
+  ok(await ev("(() => { const f = document.querySelectorAll('.prose.spotter figure'); return f.length === 2 && parseFloat(getComputedStyle(f[0]).marginBottom) >= 40; })()"), "figures should be separated by generous space");
+  ok(await ev("getComputedStyle(document.querySelector('.prose.spotter figcaption')).color !== 'rgba(0, 0, 0, 0)'"), "captions are visible outside revision mode");
+  await ev("MedWiki.toggleRevision()");
+  ok(await ev("getComputedStyle(document.querySelector('.prose.spotter figcaption')).color === 'rgba(0, 0, 0, 0)'"), "captions should be hidden in revision mode");
+  await ev("document.querySelector('.prose.spotter figcaption').click()");
+  ok(await ev("document.querySelector('.prose.spotter figcaption').classList.contains('revealed') && getComputedStyle(document.querySelector('.prose.spotter figcaption')).color !== 'rgba(0, 0, 0, 0)'"), "clicking should reveal that caption");
+  ok(await ev("getComputedStyle(document.querySelectorAll('.prose.spotter figcaption')[1]).color === 'rgba(0, 0, 0, 0)'"), "other captions stay hidden");
+  ok(/^layout: spotter$/m.test(read("content/private/spot-layout.js")), "layout must survive a save");
+  await ev("MedWiki.toggleRevision()");
+  await ev("MedWiki.deleteFile('spot-layout')");
+});
+
 console.log("\nVisual editor\n");
 
 await test("every article round-trips: Markdown → editor DOM → Markdown renders identically", async () => {

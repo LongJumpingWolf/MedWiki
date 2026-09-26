@@ -176,7 +176,7 @@ window.MedWiki = window.MedWiki || {};
 
   /* ---------- Page source format (front matter + Markdown body) ---------- */
 
-  var FIELDS = ["title", "subject", "chapter", "kind", "visibility", "aliases", "tags", "importance", "status", "finished", "edited", "summary"];
+  var FIELDS = ["title", "subject", "chapter", "kind", "visibility", "layout", "aliases", "tags", "importance", "status", "finished", "edited", "summary"];
 
   function csv(s) {
     return String(s || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
@@ -212,6 +212,7 @@ window.MedWiki = window.MedWiki || {};
       chapter: m.chapter || "",
       kind: m.kind || "",
       visibility: m.visibility === "public" ? "public" : "private",
+      layout: m.layout || "",
       aliases: csv(m.aliases),
       tags: csv(m.tags),
       importance: m.importance || "medium",
@@ -342,7 +343,7 @@ window.MedWiki = window.MedWiki || {};
 
   function fieldsOf(p) {
     return {
-      title: p.title, subject: p.subject, chapter: p.chapter, kind: p.kind, visibility: p.visibility, aliases: p.aliases,
+      title: p.title, subject: p.subject, chapter: p.chapter, kind: p.kind, visibility: p.visibility, layout: p.layout, aliases: p.aliases,
       tags: p.tags, importance: p.importance, status: p.status, finished: p.finished, edited: p.edited, summary: p.summary,
     };
   }
