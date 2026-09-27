@@ -388,6 +388,20 @@
   line-height: 1.45;
 }
 
+/* A table of images (each cell a picture, e.g. a spotter's three views): fixed equal columns so the
+   pictures shrink to fit instead of forcing the table wider than the page. */
+.prose table:has(img) {
+  table-layout: fixed;
+}
+
+.prose td img,
+.prose th img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 .prose th,
 .prose td {
   padding: 5px 12px 5px 0;

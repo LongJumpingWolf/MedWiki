@@ -297,11 +297,27 @@ body[data-page="print"] {
 }
 
 .jr-sheet .prose table {
+  width: 100%;
   border-top: 1pt solid #000;
   border-bottom: 1pt solid #000;
   font-size: 0.86em;
   line-height: 1.35;
   text-align: left;
+}
+
+/* A table of images: fixed equal columns, shrunk to the page width, so nothing is ever cut off in print. */
+.jr-sheet .prose table:has(img) {
+  table-layout: fixed;
+}
+
+.jr-sheet .prose td img,
+.jr-sheet .prose th img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 90mm;
+  object-fit: contain;
+  margin: 0 auto;
 }
 
 .jr-sheet .prose thead {
