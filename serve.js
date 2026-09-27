@@ -14,11 +14,18 @@
  *   POST /api/chapters  { extra }               → content/_chapters.js
  *   POST /api/structure { structure }           → content/_structure.js (subjects and chapters)
  *   POST /api/bites     { bites }               → content/_bites.js (quick bites: one-glance definitions)
+ *   POST /api/pdf       { path }                → a PDF of that print.html view, with real PDF bookmarks
+ *
+ * /api/pdf works by driving a hidden, local copy of Chrome or Edge: only Chrome's automation API can
+ * turn headings into PDF bookmarks, a browser's own Print dialog cannot. Needs Chrome or Edge installed;
+ * set MEDWIKI_CHROME to its full path if it isn't found automatically.
  */
 const http = require("http");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
+const { spawn } = require("child_process");
 
 const ROOT = process.env.MEDWIKI_ROOT ? path.resolve(process.env.MEDWIKI_ROOT) : __dirname;
 const PORT = Number(process.env.PORT) || 5173;
@@ -139,6 +146,110 @@ function dropFile(file) {
   if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
+/* ---------- Bookmarked PDF (drives a hidden local Chrome/Edge over the DevTools protocol) ---------- */
+
+function findBrowser() {
+  if (process.env.MEDWIKI_CHROME) return fs.existsSync(process.env.MEDWIKI_CHROME) ? process.env.MEDWIKI_CHROME : null;
+  const candidates = process.platform === "win32" ? [
+    process.env.LOCALAPPDATA + "\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  ] : process.platform === "darwin" ? [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+  ] : ["/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/microsoft-edge"];
+  return candidates.find((p) => { try { return fs.existsSync(p); } catch (e) { return false; } }) || null;
+}
+
+/* A tiny DevTools-protocol client: send(method, params) → Promise<result>. */
+function cdpConnect(wsUrl) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    let seq = 0;
+    const pending = new Map();
+    const timer = setTimeout(() => reject(new Error("Could not talk to the local browser")), 10000);
+    ws.onopen = () => {
+      clearTimeout(timer);
+      resolve({
+        send(method, params) {
+          return new Promise((res, rej) => {
+            const id = ++seq;
+            pending.set(id, { res, rej });
+            ws.send(JSON.stringify({ id, method, params: params || {} }));
+          });
+        },
+        close() { try { ws.close(); } catch (e) {} },
+      });
+    };
+    ws.onerror = () => reject(new Error("Could not talk to the local browser"));
+    ws.onmessage = (ev) => {
+      let d;
+      try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (d.id && pending.has(d.id)) {
+        const { res, rej } = pending.get(d.id);
+        pending.delete(d.id);
+        if (d.error) rej(new Error(d.error.message)); else res(d.result);
+      }
+    };
+  });
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+/* printPath: a "print.html?..." path on this same server. → PDF Buffer, with real bookmarks. */
+async function renderPdf(printPath) {
+  const browser = findBrowser();
+  if (!browser) throw new Error("No Chrome or Edge found on this computer for building the PDF. Set MEDWIKI_CHROME to its full path.");
+  const debugPort = 9300 + Math.floor(Math.random() * 500);
+  const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "medwiki-pdf-"));
+  const child = spawn(browser, [
+    "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
+    "--remote-debugging-port=" + debugPort, "--remote-debugging-address=127.0.0.1",
+    "--user-data-dir=" + profileDir, "about:blank",
+  ], { stdio: "ignore" });
+  let client;
+  try {
+    let targets = null;
+    for (let i = 0; i < 100; i++) {
+      try {
+        const list = await (await fetch("http://127.0.0.1:" + debugPort + "/json")).json();
+        if (list && list.length) { targets = list; break; }
+      } catch (e) { /* not up yet */ }
+      await sleep(150);
+    }
+    if (!targets) throw new Error("The local browser did not respond in time.");
+    const page = targets.find((t) => t.type === "page") || targets[0];
+    client = await cdpConnect(page.webSocketDebuggerUrl);
+    await client.send("Page.enable");
+    await client.send("Runtime.enable");
+    await client.send("Page.navigate", { url: "http://127.0.0.1:" + PORT + "/" + printPath });
+
+    let ready = false;
+    for (let i = 0; i < 360; i++) {
+      const r = await client.send("Runtime.evaluate", { expression: "window.__mwPrintDone === true", returnByValue: true }).catch(() => null);
+      if (r && r.result && r.result.value) { ready = true; break; }
+      await sleep(500);
+    }
+    if (!ready) throw new Error("The article took too long to render (images may be stuck loading).");
+    const empty = await client.send("Runtime.evaluate", { expression: "!!document.querySelector('.jr-none')", returnByValue: true }).catch(() => null);
+    if (empty && empty.result && empty.result.value) throw new Error("No matching article was found to print.");
+
+    const pdf = await Promise.race([
+      client.send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true, generateDocumentOutline: true }),
+      sleep(240000).then(() => { throw new Error("Building the PDF took too long — this atlas may have too many images for this to build in one go. Use the browser's own Print / Save as PDF instead (it won't have bookmarks, but it will work)."); }),
+    ]);
+    return Buffer.from(pdf.data, "base64");
+  } finally {
+    if (client) client.close();
+    child.kill();
+    /* Windows can hold the profile dir's files locked for a moment after the process exits;
+       clearing it is just housekeeping, so never let that failure hide the real result above. */
+    setTimeout(() => { try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) {} }, 1000);
+  }
+}
+
 async function api(req, res, url) {
   if (!isWriter(req)) return reply(res, 403, { error: "Not an authorized writer" });
   if (url === "/api/ping") return reply(res, 200, { ok: true, version: 2, writer: true });
@@ -200,6 +311,12 @@ async function api(req, res, url) {
       writeAtomic(path.join(CONTENT, "_chapters.js"), "MedWiki.extraChapters = " + JSON.stringify(b.extra, null, 2) + ";\n");
       return reply(res, 200, { ok: true });
     }
+    if (url === "/api/pdf") {
+      if (typeof b.path !== "string" || b.path.length > 2000 || !/^print\.html\?[a-z0-9=&,._%-]+$/i.test(b.path)) return reply(res, 400, { error: "Bad path" });
+      const buf = await renderPdf(b.path);
+      res.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="medwiki.pdf"', "Cache-Control": "no-store" });
+      return res.end(buf);
+    }
   } catch (e) {
     return reply(res, 500, { error: e.message });
   }
@@ -220,6 +337,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  const lan = [].concat(...Object.values(require("os").networkInterfaces())).filter((n) => n.family === "IPv4" && !n.internal).map((n) => "http://" + n.address + ":" + PORT);
+  const lan = [].concat(...Object.values(os.networkInterfaces())).filter((n) => n.family === "IPv4" && !n.internal).map((n) => "http://" + n.address + ":" + PORT);
   console.log("\n  MedWiki is running at http://localhost:" + PORT + (lan.length ? "\n  On your wifi (writers only): " + lan.join("  ") : "") + "\n  Edits are saved to " + path.relative(process.cwd(), CONTENT) + (path.relative(process.cwd(), CONTENT) ? "" : "content") + "/\n  Press Ctrl+C to stop.\n");
 });

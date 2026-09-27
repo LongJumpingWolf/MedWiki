@@ -7,7 +7,7 @@
 (function () {
   var MW = window.MedWiki;
   var KEY = "medwiki:print";
-  var DEFAULTS = { size: "10.5", cols: "1", margin: "narrow", numbered: true, contents: true, breaks: true, images: true, tint: true };
+  var DEFAULTS = { size: "10.5", cols: "1", margin: "narrow", contents: true, breaks: true, images: true, tint: true };
   var MARGINS = { narrow: 10, standard: 15, wide: 20 };
   var IMPORTANCE = { high: "High yield", medium: "Medium yield", low: "Low yield" };
   var STATUS = { draft: "Draft", review: "To revise", revised: "Revised" };
@@ -76,7 +76,6 @@
     root.removeAttribute("data-recall");
     root.setAttribute("data-theme", "light");
     sheet.setAttribute("data-cols", opts.cols);
-    sheet.setAttribute("data-numbered", String(opts.numbered));
     sheet.setAttribute("data-breaks", String(opts.breaks));
     sheet.setAttribute("data-images", String(opts.images));
     sheet.setAttribute("data-tint", String(opts.tint));
@@ -106,8 +105,13 @@
     if (imgQueue.done >= imgQueue.total) {
       imgQueue.waiters.splice(0).forEach(function (fn) { fn(); });
       if (note && imgQueue.total) note.textContent = "Tip: turn off “Headers and footers” in the print dialog and keep scale at 100%.";
+      /* Flag read by the server's headless-Chrome PDF builder (see downloadPdf) so it knows when
+         the page is actually finished, instead of guessing a fixed delay. */
+      Promise.resolve(document.fonts && document.fonts.ready).then(function () { window.__mwPrintDone = true; });
     }
   }
+
+  window.__mwPrintProgress = function () { return { done: imgQueue.done, total: imgQueue.total }; };
 
   function queueImages() {
     var imgs = [].slice.call(sheet.querySelectorAll("img"));
@@ -151,6 +155,7 @@
   }
 
   function renderSheet() {
+    window.__mwPrintDone = false;
     var list = pages();
     var html = "";
     if (list.length > 1 && opts.contents) html += contentsHtml(list);
@@ -178,12 +183,12 @@
       '<strong class="jr-bar-title">Print view</strong><span class="jr-bar-count" id="jr-count"></span>' +
       '<span class="grow"></span>' +
       '<button type="button" class="btn" id="jr-pick">' + MW.icon("plus", 15) + "<span>Choose articles</span></button>" +
+      (MW.server.available ? '<button type="button" class="btn" id="jr-pdf" title="Builds the PDF on your computer so headings become real, clickable PDF bookmarks (a browser\'s own Print dialog cannot do this)">' + MW.icon("bookmark", 15) + "<span>Download bookmarked PDF</span></button>" : "") +
       '<button type="button" class="btn btn-primary" id="jr-print">' + MW.icon("printer", 15) + '<span>Print / Save as PDF</span></button></div>' +
       '<div class="jr-bar-opts">' +
       select("jr-size", "Text", "size", [["9.5", "9.5 pt"], ["10", "10 pt"], ["10.5", "10.5 pt"], ["11", "11 pt"], ["12", "12 pt"]]) +
       select("jr-cols", "Columns", "cols", [["1", "One"], ["2", "Two"]]) +
       select("jr-margin", "Margins", "margin", [["narrow", "Narrow"], ["standard", "Standard"], ["wide", "Wide"]]) +
-      check("jr-numbered", "Section numbers", "numbered") +
       check("jr-contents", "Contents page", "contents") +
       check("jr-breaks", "New page per article", "breaks") +
       check("jr-tint", "Tinted study blocks", "tint") +
@@ -192,7 +197,7 @@
       '<p class="jr-bar-note" id="jr-note" role="status">Preview is one continuous sheet. Margins and page breaks apply in the printed PDF. In the print dialog, turn off “Headers and footers” and leave scale at 100%.</p>';
 
     var map = { "jr-size": "size", "jr-cols": "cols", "jr-margin": "margin" };
-    var checks = { "jr-numbered": "numbered", "jr-contents": "contents", "jr-breaks": "breaks", "jr-tint": "tint", "jr-images": "images" };
+    var checks = { "jr-contents": "contents", "jr-breaks": "breaks", "jr-tint": "tint", "jr-images": "images" };
     Object.keys(map).forEach(function (id) {
       toolbar.querySelector("#" + id).addEventListener("change", function (e) { opts[map[id]] = e.target.value; save(); });
     });
@@ -201,6 +206,55 @@
     });
     toolbar.querySelector("#jr-pick").addEventListener("click", function () { MW.printDialog({ preselect: ids }); });
     toolbar.querySelector("#jr-print").addEventListener("click", print);
+    var pdfBtn = toolbar.querySelector("#jr-pdf");
+    if (pdfBtn) pdfBtn.addEventListener("click", downloadPdf);
+  }
+
+  /*
+   * A browser's own Print dialog does not turn headings into PDF bookmarks (only Chrome's
+   * automation API can do that). So this asks the local server to open the same print view in its
+   * own hidden Chrome/Edge and build the PDF there, where that API is available.
+   */
+  function printQuery() {
+    var qs = new URLSearchParams();
+    qs.set("a", ids.join(","));
+    qs.set("size", opts.size);
+    qs.set("cols", opts.cols);
+    qs.set("margin", opts.margin);
+    ["contents", "breaks", "tint", "images"].forEach(function (k) { qs.set(k, opts[k] ? "1" : "0"); });
+    return qs.toString();
+  }
+
+  function downloadPdf() {
+    var btn = document.getElementById("jr-pdf");
+    if (!btn || btn.disabled) return;
+    var label = btn.querySelector("span");
+    var was = label.textContent;
+    btn.disabled = true;
+    label.textContent = "Building PDF…";
+    fetch("api/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: "print.html?" + printQuery() }),
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error((j && j.error) || "Could not build the PDF."); });
+      return r.blob();
+    }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      var list = pages();
+      a.href = url;
+      a.download = (list.length === 1 ? MW.slug(list[0].title) : "medwiki-study-notes") + ".pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    }).catch(function (err) {
+      MW.toast("Could not build the PDF: " + err.message);
+    }).then(function () {
+      btn.disabled = false;
+      label.textContent = was;
+    });
   }
 
   function save() {
@@ -239,6 +293,7 @@
         '<button type="button" class="btn btn-primary" id="jr-none-pick">Choose articles</button></div>';
       sheet.querySelector("#jr-none-pick").addEventListener("click", function () { MW.printDialog({}); });
       document.getElementById("jr-count").textContent = "";
+      window.__mwPrintDone = true; /* nothing to wait for, so the server's PDF builder does not sit and time out */
       if (MW.pages.length) MW.printDialog({});
       return;
     }

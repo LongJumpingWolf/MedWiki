@@ -106,13 +106,13 @@ await test("home shows a welcome, the article to continue, and recently written 
   ok(!(await ev("document.body.innerText.includes('No articles yet')")), "empty state should not show");
 });
 
-await test("print view: journal layout, numbered sections, contents page for several articles", async () => {
+await test("print view: journal layout, contents page for several articles, no auto-numbering to clash with an article's own", async () => {
   await go(BASE + "print.html?a=tuberculosis,digoxin");
   await waitFor("!!document.querySelector('.jr-article')", 5000);
   ok(await ev("document.querySelectorAll('.jr-article').length === 2"), "both articles should render");
   ok(await ev("!!document.querySelector('.jr-cover .jr-toc a[href=\"#art-digoxin\"]')"), "contents page missing");
   ok(await ev("!document.querySelector('.jr-sheet .h-anchor') || getComputedStyle(document.querySelector('.jr-sheet .h-anchor')).display === 'none'"), "heading anchors should be hidden");
-  ok(await ev("getComputedStyle(document.querySelector('.jr-text h2'), '::before').content.length > 2"), "section numbers missing");
+  ok(await ev("getComputedStyle(document.querySelector('.jr-text h2'), '::before').content === 'none'"), "headings should not get an auto-generated number");
   ok(await ev("document.querySelectorAll('.jr-sheet .block').length > 3"), "study blocks missing");
   await go(BASE + "print.html?a=digoxin");
   await waitFor("!!document.querySelector('.jr-article')", 5000);

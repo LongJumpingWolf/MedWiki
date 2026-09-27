@@ -1,1 +1,1 @@
-MedWiki.extraChapters = {"microbiology":[{"id":"spotters","title":"Spotters"}],"pathology":[{"id":"histopathology-spots","title":"Histopathology spots"}]};
+MedWiki.extraChapters = {"microbiology":[{"id":"spotters","title":"Spotters"},{"id":"hospital-infection-control","title":"Hospital infection control"}],"pathology":[{"id":"histopathology-spots","title":"Histopathology spots"}]};
